@@ -20,7 +20,7 @@ import os
 
 class DefaultConfigs:
 
-    def __init__(self, model, server_env=False, dim=2):
+    def __init__(self, model, server_env=None, dim=2):
         self.server_env = server_env
         #########################
         #         I/O           #
@@ -40,6 +40,7 @@ class DefaultConfigs:
         if server_env:
             self.source_dir = '/home/jaegerp/code/mamma_code/medicaldetectiontoolkit'
 
+
         #########################
         #      Data Loader      #
         #########################
@@ -48,7 +49,7 @@ class DefaultConfigs:
         self.seed = 0
 
         #number of threads for multithreaded batch generation.
-        self.n_workers = 4 if server_env else os.cpu_count()-1
+        self.n_workers = 6
 
         # if True, segmentation losses learn all categories, else only foreground vs. background.
         self.class_specific_seg_flag = False
@@ -58,8 +59,6 @@ class DefaultConfigs:
         #########################
 
         self.weight_decay = 0.0
-        # what weight or layer types to exclude from weight decay. options: ["bias", "norm"].
-        self.exclude_from_wd = ("norm",)
 
         # nonlinearity to be applied after convs with nonlinearity. one of 'relu' or 'leaky_relu'
         self.relu = 'relu'
@@ -92,8 +91,6 @@ class DefaultConfigs:
         self.hold_out_test_set = False
 
         # if hold_out_test_set provided, ensemble predictions over models of all trained cv-folds.
-        # implications for hold-out test sets: if True, evaluate folds separately on the test set, aggregate only the
-        # evaluations. if False, aggregate the raw predictions across all folds, then evaluate.
         self.ensemble_folds = False
 
         # color specifications for all box_types in prediction_plot.
@@ -104,10 +101,10 @@ class DefaultConfigs:
         self.scan_det_thresh = False
 
         # plots roc-curves / prc-curves in evaluation.
-        self.plot_stat_curves = True
+        self.plot_stat_curves = False
 
         # evaluates average precision per image and averages over images. instead computing one ap over data set.
-        self.per_patient_ap = True
+        self.per_patient_ap = False
 
         # threshold for clustering 2D box predictions to 3D Cubes. Overlap is computed in XY.
         self.merge_3D_iou = 0.1

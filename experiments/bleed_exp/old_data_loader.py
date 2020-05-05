@@ -27,6 +27,7 @@ import pandas as pd
 import pickle
 import time
 import subprocess
+import utils.dataloader_utils as dutils
 
 # batch generator tools from https://github.com/MIC-DKFZ/batchgenerators
 from batchgenerators.dataloading.data_loader import SlimDataLoaderBase
@@ -38,8 +39,7 @@ from batchgenerators.transforms.spatial_transforms import SpatialTransform
 from batchgenerators.transforms.crop_and_pad_transforms import CenterCropTransform
 from batchgenerators.transforms.utility_transforms import ConvertSegToBoundingBoxCoordinates
 
-import utils.dataloader_utils as dutils
-import utils.exp_utils as utils
+
 
 def get_train_generators(cf, logger):
     """
@@ -51,28 +51,29 @@ def get_train_generators(cf, logger):
     all_data = load_dataset(cf, logger)
     all_pids_list = np.unique([v['pid'] for (k, v) in all_data.items()])
 
-    splits_file = os.path.join(cf.exp_dir, 'fold_ids.pickle')
-    if not os.path.exists(splits_file) and not cf.created_fold_id_pickle:
+    if not cf.created_fold_id_pickle:
         fg = dutils.fold_generator(seed=cf.seed, n_splits=cf.n_cv_splits, len_data=len(all_pids_list)).get_fold_names()
-        with open(splits_file, 'wb') as handle:
+        with open(os.path.join(cf.exp_dir, 'fold_ids.pickle'), 'wb') as handle:
             pickle.dump(fg, handle)
         cf.created_fold_id_pickle = True
     else:
-        with open(splits_file, 'rb') as handle:
+        with open(os.path.join(cf.exp_dir, 'fold_ids.pickle'), 'rb') as handle:
             fg = pickle.load(handle)
 
     train_ix, val_ix, test_ix, _ = fg[cf.fold]
 
     train_pids = [all_pids_list[ix] for ix in train_ix]
     val_pids = [all_pids_list[ix] for ix in val_ix]
-
+    test_pids = [all_pids_list[ix] for ix in test_ix]
     if cf.hold_out_test_set:
         train_pids += [all_pids_list[ix] for ix in test_ix]
-
+        test_pids = []
+    #import code
+    #code.interact(local=locals())
     train_data = {k: v for (k, v) in all_data.items() if any(p == v['pid'] for p in train_pids)}
     val_data = {k: v for (k, v) in all_data.items() if any(p == v['pid'] for p in val_pids)}
 
-    logger.info("data set loaded with: {} train / {} val / {} test patients".format(len(train_ix), len(val_ix), len(test_ix)))
+    logger.info("data set loaded with: {} train / {} val / {} test patients".format(len(train_pids), len(val_pids), len(test_pids)))
     batch_gen = {}
     batch_gen['train'] = create_data_gen_pipeline(train_data, cf=cf, is_training=True)
     batch_gen['val_sampling'] = create_data_gen_pipeline(val_data, cf=cf, is_training=False)
@@ -93,7 +94,8 @@ def get_test_generator(cf, logger):
     """
     if cf.hold_out_test_set:
         pp_name = cf.pp_test_name
-        #test_ix = None
+        #import code
+        #code.interact(local=locals())
         test_ix = np.arange((len(os.listdir(cf.pp_test_data_path))/3)-2,dtype=np.int16)
     else:
         pp_name = None
@@ -126,7 +128,7 @@ def load_dataset(cf, logger, subset_ixs=None, pp_data_path=None, pp_name=None):
         pp_name = cf.pp_name
     if cf.server_env:
         copy_data = True
-        target_dir = os.path.join(cf.data_dest, pp_name)
+        target_dir = os.path.join('/ssd', cf.slurm_job_id, pp_name, cf.crop_name)
         if not os.path.exists(target_dir):
             cf.data_source_dir = pp_data_path
             os.makedirs(target_dir)
@@ -201,10 +203,10 @@ def create_data_gen_pipeline(patient_data, cf, is_training=True):
     else:
         my_transforms.append(CenterCropTransform(crop_size=cf.patch_size[:cf.dim]))
 
-    my_transforms.append(ConvertSegToBoundingBoxCoordinates(cf.dim, get_rois_from_seg_flag=False, class_specific_seg_flag=cf.class_specific_seg_flag))
+    my_transforms.append(ConvertSegToBoundingBoxCoordinates(cf.dim, get_rois_from_seg_flag=True, class_specific_seg_flag=cf.class_specific_seg_flag))
     all_transforms = Compose(my_transforms)
-    multithreaded_generator = SingleThreadedAugmenter(data_gen, all_transforms)
-    #multithreaded_generator = MultiThreadedAugmenter(data_gen, all_transforms, num_processes=cf.n_workers, seeds=range(cf.n_workers))
+    # multithreaded_generator = SingleThreadedAugmenter(data_gen, all_transforms)
+    multithreaded_generator = MultiThreadedAugmenter(data_gen, all_transforms, num_processes=cf.n_workers, seeds=range(cf.n_workers))
     return multithreaded_generator
 
 
@@ -215,7 +217,7 @@ class BatchGenerator(SlimDataLoaderBase):
     Actual patch_size is obtained after data augmentation.
     :param data: data dictionary as provided by 'load_dataset'.
     :param batch_size: number of patients to sample for the batch
-    :return dictionary containing the batch data (b, c, y, x(, z)) / seg (b, 1, y, x(, z)) / pids / class_target
+    :return dictionary containing the batch data (b, c, x, y, (z)) / seg (b, 1, x, y, (z)) / pids / class_target
     """
     def __init__(self, data, batch_size, cf):
         super(BatchGenerator, self).__init__(data, batch_size)
@@ -241,8 +243,7 @@ class BatchGenerator(SlimDataLoaderBase):
         for b in batch_ixs:
             patient = patients[b][1]
 
-            # data shape: from (z,y,x) to (c, y, x, z).
-            data = np.transpose(np.load(patient['data'], mmap_mode='r'), axes=(1, 2, 0))[np.newaxis]
+            data = np.transpose(np.load(patient['data'], mmap_mode='r'), axes=(1, 2, 0))[np.newaxis] # (c, y, x, z)
             seg = np.transpose(np.load(patient['seg'], mmap_mode='r'), axes=(1, 2, 0))
             batch_pids.append(patient['pid'])
             batch_targets.append(patient['class_target'])
@@ -358,14 +359,14 @@ class PatientBatchIterator(SlimDataLoaderBase):
             out_targets = batch_class_targets
 
             batch_3D = {'data': out_data, 'seg': out_seg, 'class_target': out_targets, 'pid': pid}
-            converter = ConvertSegToBoundingBoxCoordinates(dim=3, get_rois_from_seg_flag=False, class_specific_seg_flag=self.cf.class_specific_seg_flag)
+            converter = ConvertSegToBoundingBoxCoordinates(dim=3, get_rois_from_seg_flag=True, class_specific_seg_flag=self.cf.class_specific_seg_flag)
             batch_3D = converter(**batch_3D)
             batch_3D.update({'patient_bb_target': batch_3D['bb_target'],
-                                  'patient_roi_labels': batch_3D['class_target'],
+                                  'patient_roi_labels': batch_3D['roi_labels'],
                                   'original_img_shape': out_data.shape})
 
         if self.cf.dim == 2:
-            out_data = np.transpose(data, axes=(3, 0, 1, 2))  # (z, c, y, x )
+            out_data = np.transpose(data, axes=(3, 0, 1, 2))  # (z, c, x, y )
             out_seg = np.transpose(seg, axes=(2, 0, 1))[:, np.newaxis]
             out_targets = np.array(np.repeat(batch_class_targets, out_data.shape[0], axis=0))
 
@@ -388,7 +389,7 @@ class PatientBatchIterator(SlimDataLoaderBase):
                                       'original_img_shape': out_data.shape})
             else:
                 batch_2D.update({'patient_bb_target': batch_2D['bb_target'],
-                                 'patient_roi_labels': batch_2D['class_target'],
+                                 'patient_roi_labels': batch_2D['roi_labels'],
                                  'original_img_shape': out_data.shape})
 
         out_batch = batch_3D if self.cf.dim == 3 else batch_2D
@@ -448,6 +449,7 @@ class PatientBatchIterator(SlimDataLoaderBase):
 
 def copy_and_unpack_data(logger, pids, fold_dir, source_dir, target_dir):
 
+
     start_time = time.time()
     with open(os.path.join(fold_dir, 'file_list.txt'), 'w') as handle:
         for pid in pids:
@@ -456,35 +458,8 @@ def copy_and_unpack_data(logger, pids, fold_dir, source_dir, target_dir):
 
     subprocess.call('rsync -av --files-from {} {} {}'.format(os.path.join(fold_dir, 'file_list.txt'),
         source_dir, target_dir), shell=True)
-    n_threads = 8
-    dutils.unpack_dataset(target_dir, threads=n_threads)
+    dutils.unpack_dataset(target_dir)
     copied_files = os.listdir(target_dir)
-    t = utils.get_formatted_duration(time.time() - start_time)
-    logger.info("\ncopying and unpacking data set finished using {} threads.\n{} files in target dir: {}. Took {}\n"
-        .format(n_threads, len(copied_files), target_dir, t))
+    logger.info("copying and unpacking data set finsihed : {} files in target dir: {}. took {} sec".format(
+        len(copied_files), target_dir, np.round(time.time() - start_time, 0)))
 
-
-if __name__=="__main__":
-
-    total_stime = time.time()
-
-    cf_file = utils.import_module("cf", "configs.py")
-    cf = cf_file.configs()
-
-    cf.created_fold_id_pickle = False
-    cf.exp_dir = "dev/"
-    cf.plot_dir = cf.exp_dir + "plots"
-    os.makedirs(cf.exp_dir, exist_ok=True)
-    cf.fold = 0
-    logger = utils.get_logger(cf.exp_dir)
-
-    #batch_gen = get_train_generators(cf, logger)
-    #train_batch = next(batch_gen["train"])
-
-    test_gen = get_test_generator(cf, logger)
-    test_batch = next(test_gen["test"])
-
-    mins, secs = divmod((time.time() - total_stime), 60)
-    h, mins = divmod(mins, 60)
-    t = "{:d}h:{:02d}m:{:02d}s".format(int(h), int(mins), int(secs))
-    print("{} total runtime: {}".format(os.path.split(__file__)[1], t))

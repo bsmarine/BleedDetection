@@ -203,6 +203,7 @@ def create_data_gen_pipeline(patient_data, cf, is_training=True):
 
     my_transforms.append(ConvertSegToBoundingBoxCoordinates(cf.dim, get_rois_from_seg_flag=False, class_specific_seg_flag=cf.class_specific_seg_flag))
     all_transforms = Compose(my_transforms)
+    
     multithreaded_generator = SingleThreadedAugmenter(data_gen, all_transforms)
     #multithreaded_generator = MultiThreadedAugmenter(data_gen, all_transforms, num_processes=cf.n_workers, seeds=range(cf.n_workers))
     return multithreaded_generator
