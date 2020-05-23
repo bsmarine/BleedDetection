@@ -25,6 +25,7 @@ from sklearn.metrics import roc_curve, precision_recall_curve
 
 import utils.exp_utils as utils
 import utils.model_utils as mutils
+import utils.eval_util as eutils
 import plotting
 
 
@@ -293,7 +294,8 @@ class Evaluator():
                 # on patient level, aggregate predictions per patient (pid): The patient predicted score is the highest
                 # confidence prediction for this class. The patient class label is 1 if roi of this class exists in patient, else 0.
                 if score_level == 'patient':
-                    spec_df = cl_df.groupby(['pid'], as_index=False).agg({'class_label': 'max', 'pred_score': 'max', 'fold': 'first'})
+                    # spec_df = cl_df.groupby(['pid'], as_index=False).agg({'class_label': 'max', 'pred_score': 'max', 'fold': 'first'})
+                    spec_df = cl_df.groupby(["pid"], as_index=False).apply(eutils.patient_based_filter)
 
                     if len(spec_df.class_label.unique()) > 1:
                         stats_dict['auc'] = roc_auc_score(spec_df.class_label.tolist(), spec_df.pred_score.tolist())
@@ -333,7 +335,8 @@ class Evaluator():
                 if self.cf.plot_prediction_histograms:
                     out_filename = os.path.join(self.hist_dir, 'pred_hist_{}_{}_{}_cl{}'.format(
                         self.cf.fold, 'val' if 'val' in self.mode else self.mode, score_level, cl))
-                    type_list = None if score_level == 'patient' else spec_df.det_type.tolist()
+                    # type_list = None if score_level == 'patient' else spec_df.det_type.tolist()
+                    type_list = spec_df.det_type.tolist()
                     utils.split_off_process(plotting.plot_prediction_hist, spec_df.class_label.tolist(),
                                             spec_df.pred_score.tolist(), type_list, out_filename)
 
