@@ -1,0 +1,18 @@
+{
+    "three-phase":[
+    "noncon",
+    "arterial",
+    "venous"
+],
+    "two-phase-non-art":[
+    "noncon",
+    "arterial"
+],
+    "two-phase-art-ven":[
+    "arterial",
+    "venous"
+],
+    "single-phase-art":"arterial",
+    "single-phase-venous":"venous"
+
+}
