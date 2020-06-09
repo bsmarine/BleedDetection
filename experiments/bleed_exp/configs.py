@@ -27,10 +27,13 @@ class configs(DefaultConfigs):
         #########################
         #    Preprocessing      #
         #########################
-
-        self.root_dir = '/home/marinb02/data/bodyBleed/'
-        self.raw_data_dir = '{}/raw_data/bleedPosNegEven'.format(self.root_dir)
-        self.pp_dir = '{}/preprocessed_data/pp_bleedPosNegEven_fix'.format(self.root_dir)
+        
+        self.multiphase = True
+        self.pp_mp_cf = 'preprocessing_config_bleed.json'
+        self.mp_setting = "three-phase"
+        self.root_dir = '/Users/brettmarinelli/Desktop'
+        self.raw_data_dir = '{}/bleedPosNegTT/test'.format(self.root_dir)
+        self.pp_dir = '{}/preprocessed_data/Test'.format(self.root_dir)
         self.target_spacing = (1.0, 1.0, 1.0)
 
         #########################
