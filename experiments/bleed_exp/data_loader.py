@@ -242,8 +242,12 @@ class BatchGenerator(SlimDataLoaderBase):
         for b in batch_ixs:
             patient = patients[b][1]
 
-            # data shape: from (z,y,x) to (c, y, x, z).
-            data = np.transpose(np.load(patient['data'], mmap_mode='r'), axes=(1, 2, 0))[np.newaxis]
+            # data shape: from (z,y,x,c) or (y,x,c) to (c, y, x, z) depending on input data shape.
+            data = np.load(patient['data'],mmap_mode='r')
+            if len(data.shape)==4:
+                data = np.transpose(data, axes=(3, 1, 2, 0)) ##[np.newaxis]
+            else:
+                data = np.transpose(data, axes=(1, 2, 0))[np.newaxis]
             seg = np.transpose(np.load(patient['seg'], mmap_mode='r'), axes=(1, 2, 0))
             batch_pids.append(patient['pid'])
             batch_targets.append(patient['class_target'])
@@ -267,6 +271,7 @@ class BatchGenerator(SlimDataLoaderBase):
                 else:
                     data = data[..., slice_id]
                 seg = seg[..., slice_id]
+            
 
             # pad data if smaller than pre_crop_size.
             if np.any([data.shape[dim + 1] < ps for dim, ps in enumerate(self.cf.pre_crop_size)]):
@@ -315,6 +320,7 @@ class BatchGenerator(SlimDataLoaderBase):
         data = np.array(batch_data)
         seg = np.array(batch_segs).astype(np.uint8)
         class_target = np.array(batch_targets)
+        
         return {'data': data, 'seg': seg, 'pid': batch_pids, 'class_target': class_target}
 
 
@@ -342,7 +348,7 @@ class PatientBatchIterator(SlimDataLoaderBase):
 
         pid = self.dataset_pids[self.patient_ix]
         patient = self._data[pid]
-        data = np.transpose(np.load(patient['data'], mmap_mode='r'), axes=(1, 2, 0))[np.newaxis] # (c, y, x, z)
+        data = np.transpose(np.load(patient['data'], mmap_mode='r'), axes=(3, 1, 2, 0))  ##[np.newaxis] (c, y, x, z)
         seg = np.transpose(np.load(patient['seg'], mmap_mode='r'), axes=(1, 2, 0))
         batch_class_targets = np.array([patient['class_target']])
 
@@ -479,8 +485,10 @@ if __name__=="__main__":
     cf.fold = 0
     logger = utils.get_logger(cf.exp_dir)
 
-    #batch_gen = get_train_generators(cf, logger)
-    #train_batch = next(batch_gen["train"])
+    batch_gen = get_train_generators(cf, logger)
+    train_batch = next(batch_gen["train"])
+
+    print (train_batch.shape+" entire batch shape")
 
     test_gen = get_test_generator(cf, logger)
     test_batch = next(test_gen["test"])
