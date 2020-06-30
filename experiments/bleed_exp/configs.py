@@ -27,10 +27,13 @@ class configs(DefaultConfigs):
         #########################
         #    Preprocessing      #
         #########################
-
-        self.root_dir = '/home/marinb02/data/bodyBleed/'
-        self.raw_data_dir = '{}/raw_data/bleedPosNegEven'.format(self.root_dir)
-        self.pp_dir = '{}/preprocessed_data/pp_bleedPosNegEven_fix'.format(self.root_dir)
+        
+        self.multiphase = True
+        self.pp_mp_cf = 'preprocessing_config_bleed.json'
+        self.mp_setting = "three-phase"
+        self.root_dir = '/home/aisinai/data'
+        self.raw_data_dir = '{}/preprocessed_data/pp_bleedPosNegEven_concat/Train'.format(self.root_dir)
+        self.pp_dir = '{}/preprocessed_data/Train'.format(self.root_dir)
         self.target_spacing = (1.0, 1.0, 1.0)
 
         #########################
@@ -50,7 +53,7 @@ class configs(DefaultConfigs):
         self.select_prototype_subset = None
 
         # path to preprocessed data.
-        self.pp_name = 'pp_bleedPosNegEven_fix'
+        self.pp_name = 'pp_bleedPosNegEven_concat/Train'
         self.input_df_name = 'info_df.pickle'
         self.pp_data_path = '/home/aisinai/data/preprocessed_data/{}'.format(self.pp_name)
         self.pp_test_data_path = self.pp_data_path #change if test_data in separate folder.
@@ -69,7 +72,7 @@ class configs(DefaultConfigs):
         #########################
 
         # select modalities from preprocessed data
-        self.channels = [0]
+        self.channels = [0, 1, 2]
         self.n_channels = len(self.channels)
 
         # patch_size to be used for training. pre_crop_size is the patch_size before data augmentation.
@@ -151,7 +154,7 @@ class configs(DefaultConfigs):
 
         #self.model_selection_criteria = ['positive_ap', 'negative_ap'] # criteria to average over for saving epochs.
         self.model_selection_criteria = ['positive_ap']
-        self.min_det_thresh = 0.1  # minimum confidence value to select predictions for evaluation.
+        self.min_det_thresh = 0.6  # minimum confidence value to select predictions for evaluation.
 
         # threshold for clustering predictions together (wcs = weighted cluster scoring).
         # needs to be >= the expected overlap of predictions coming from one model (typically NMS threshold).
