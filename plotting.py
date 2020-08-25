@@ -22,7 +22,7 @@ import matplotlib.gridspec as gridspec
 import numpy as np
 import os
 from copy import deepcopy
-
+import pickle
 
 def suppress_axes_lines(ax):
     """
@@ -47,6 +47,7 @@ def plot_batch_prediction(batch: dict, results_dict: dict, cf, outfile: Union[st
     :param results_dict: list over batch element. Each element is a list of boxes (prediction and ground truth),
     where every box is a dictionary containing box_coords, box_score and box_type.
     """
+    print ("Outfile beginning"+str(outfile))
     if outfile is None:
         outfile = os.path.join(cf.plot_dir, 'pred_example_{}.png'.format(cf.fold))
 
@@ -176,6 +177,7 @@ def plot_batch_prediction(batch: dict, results_dict: dict, cf, outfile: Union[st
     if suptitle is not None:
         plt.suptitle(suptitle, fontsize=22)
 
+    print ("Outfile end"+str(outfile))
     try:
         plt.savefig(outfile)
     except:

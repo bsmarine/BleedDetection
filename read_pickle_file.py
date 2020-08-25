@@ -1,5 +1,6 @@
 import pickle
 import pandas as pd
+import code
 
 class ReadPickle:
   def __init__(self,input):
@@ -10,6 +11,7 @@ class ReadPickle:
       
       df = pd.read_pickle(self.input)
       #file = pickle.load(open(self.input,"rb"))
+      code.interact(local=locals())
       with pd.option_context('display.max_rows', None, 'display.max_columns', None):  # more options can be specified also
          print(df)
 

@@ -52,7 +52,7 @@ def pp_patient(inputs):
 
         img_arr = sitk.GetArrayFromImage(img)
         print('processing {} {}'.format(pid,ii), img.GetSpacing(), img_arr.shape)
-        img_arr = resample_array(img_arr, img.GetSpacing(), cf.target_spacing)
+        #img_arr = resample_array(img_arr, img.GetSpacing(), cf.target_spacing) #already re-sampled in prior pre-processing
         img_arr = np.clip(img_arr, -1200, 600)
         #img_arr = (1200 + img_arr) / (600 + 1200) * 255  # a+x / (b-a) * (c-d) (c, d = new)
         img_arr = img_arr.astype(np.float32)
@@ -61,7 +61,7 @@ def pp_patient(inputs):
         
     concat = np.stack(concat_images,axis=3)
     
-    print ("Concatenated Img Shape "+concat.shape)
+    print ("Concatenated Img Shape "+str(concat.shape))
 
     #Open Characteristics File
     df = pd.read_csv(os.path.join(cf.root_dir, 'raw_characteristics.csv'), sep=',',converters={'PatientID': lambda x: str(x)})

@@ -48,7 +48,7 @@ class DefaultConfigs:
         self.seed = 0
 
         #number of threads for multithreaded batch generation.
-        self.n_workers = 4 if server_env else os.cpu_count()-1
+        self.n_workers = 4 if server_env else 8 ## os.cpu_count()-1
 
         # if True, segmentation losses learn all categories, else only foreground vs. background.
         self.class_specific_seg_flag = False
@@ -122,6 +122,8 @@ class DefaultConfigs:
 
         # select a maximum number of patient cases to test. number or "all" for all
         self.max_test_patients = "all"
+
+
 
         #########################
         #   MRCNN               #
