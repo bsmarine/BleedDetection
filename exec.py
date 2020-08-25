@@ -183,7 +183,7 @@ def test(logger):
       all_preds = pd.concat(test_frames)
       all_preds.to_csv(os.path.join(self.cf.test_dir,"all_folds_test.csv"))
 
-    #Concatenate detection wbc boxes across folds
+    #Concatenate detection raw boxes across folds
       det_frames = [pd.read_pickle(os.path.join(self.cf.exp_dir,f,'raw_pred_boxes_list.pickle')) for f in os.listdir(self.cf.exp_dir) if 'fold' in f] 
       for i in det_frames:
         all_dets.extend(i)

@@ -170,7 +170,6 @@ class Predictor:
                     results_dict = self.predict_patient(batch)
                     dict_of_patient_results[batch['pid']]['results_dicts'].append({"boxes": results_dict['boxes']})
                     
-                    #print ("Testing testing :"+str(plot_batches)+str(self.patched_patient))
                     if i in plot_batches and not self.patched_patient:
                         # view qualitative results of random test case
                         # plotting for patched patients is too expensive, thus not done. Change at will.
@@ -189,7 +188,7 @@ class Predictor:
                                                                        'box_label': batch['class_target'][bix][tix],
                                                                        'box_type': 'gt'})
                             utils.split_off_process(plot_batch_prediction, batch, results_for_plotting, self.cf,
-                                                    outfile=out_file, suptitle="Test plot:\nunmerged TTA overlayed.",threed_write=True)
+                                                    outfile=out_file, suptitle="Test plot:\nunmerged TTA overlayed.")
                         except Exception as e:
                             self.logger.info("WARNING: error in plotting example test batch: {}".format(e))
 

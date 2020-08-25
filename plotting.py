@@ -38,7 +38,7 @@ def suppress_axes_lines(ax):
     return
 
 def plot_batch_prediction(batch: dict, results_dict: dict, cf, outfile: Union[str, None]=None,
-                          suptitle: Union[str, None]=None,threed_write: bool=False):
+                          suptitle: Union[str, None]=None):
     """
     plot the input images, ground truth annotations, and output predictions of a batch. If 3D batch, plots a 2D projection
     of one randomly sampled element (patient) in the batch. Since plotting all slices of patient volume blows up costs of
@@ -50,14 +50,6 @@ def plot_batch_prediction(batch: dict, results_dict: dict, cf, outfile: Union[st
     print ("Outfile beginning"+str(outfile))
     if outfile is None:
         outfile = os.path.join(cf.plot_dir, 'pred_example_{}.png'.format(cf.fold))
-
-    ## For testing
-    #if threed_write == True:
-    # with open('batch.pickle','wb') as outfile:
-    #   pickle.dump(batch,outfile)
-
-    # with open('results.pickle','wb') as outfile:
-    #   pickle.dump(results_dict,outfile)
 
     data = batch['data']
     segs = batch['seg']

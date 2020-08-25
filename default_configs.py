@@ -123,8 +123,6 @@ class DefaultConfigs:
         # select a maximum number of patient cases to test. number or "all" for all
         self.max_test_patients = "all"
 
-        self.write_3D_datasets = 'some' # ['all','some','none']
-        self.write_some_3D_data = ['g29_pos_0']
 
 
         #########################
