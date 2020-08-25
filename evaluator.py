@@ -345,7 +345,7 @@ class Evaluator():
                 # analysis of the  hyper-parameter cf.min_det_thresh, for optimization on validation set.
                 if self.cf.scan_det_thresh:
                     conf_threshs = list(np.arange(0.9, 1, 0.01))
-                    pool = Pool(processes=10)
+                    pool = Pool(processes=8)
                     mp_inputs = [[spec_df, ii, self.cf.per_patient_ap] for ii in conf_threshs]
                     aps = pool.map(get_roi_ap_from_df, mp_inputs, chunksize=1)
                     pool.close()

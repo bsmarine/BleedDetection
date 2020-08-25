@@ -169,7 +169,8 @@ class Predictor:
                     # call prediction pipeline and store results in dict.
                     results_dict = self.predict_patient(batch)
                     dict_of_patient_results[batch['pid']]['results_dicts'].append({"boxes": results_dict['boxes']})
-
+                    
+                    #print ("Testing testing :"+str(plot_batches)+str(self.patched_patient))
                     if i in plot_batches and not self.patched_patient:
                         # view qualitative results of random test case
                         # plotting for patched patients is too expensive, thus not done. Change at will.
@@ -188,7 +189,7 @@ class Predictor:
                                                                        'box_label': batch['class_target'][bix][tix],
                                                                        'box_type': 'gt'})
                             utils.split_off_process(plot_batch_prediction, batch, results_for_plotting, self.cf,
-                                                    outfile=out_file, suptitle="Test plot:\nunmerged TTA overlayed.")
+                                                    outfile=out_file, suptitle="Test plot:\nunmerged TTA overlayed.",threed_write=True)
                         except Exception as e:
                             self.logger.info("WARNING: error in plotting example test batch: {}".format(e))
 
@@ -230,7 +231,7 @@ class Predictor:
             # consolidate predictions.
             self.logger.info('applying wcs to test set predictions with iou = {} and n_ens = {}.'.format(
                 self.cf.wcs_iou, self.n_ens))
-            pool = Pool(processes=6)
+            pool = Pool(processes=8)
             mp_inputs = [[ii[0], ii[1], self.cf.class_dict, self.cf.wcs_iou, self.n_ens] for ii in final_patient_box_results]
             final_patient_box_results = pool.map(apply_wbc_to_patient, mp_inputs, chunksize=1)
             pool.close()
@@ -249,6 +250,11 @@ class Predictor:
             for ix in range(len(results_per_patient)):
                 assert results_per_patient[ix][1] == final_patient_box_results[ix][1], "should be same pid"
                 results_per_patient[ix][0]["boxes"] = final_patient_box_results[ix][0]
+
+            out_string = 'wbc_pred_boxes_hold_out_list' if self.cf.hold_out_test_set else 'wbc_pred_boxes_list'
+            with open(os.path.join(self.cf.fold_dir, '{}.pickle'.format(out_string)), 'wb') as handle:
+               pickle.dump(results_per_patient, handle)
+
 
             return results_per_patient
 

@@ -31,7 +31,7 @@ def convert_to_npy(npz_file):
         np.save(npz_file[:-3] + "npy", a)
 
 
-def unpack_dataset(folder, threads=2):
+def unpack_dataset(folder, threads=1):
     case_identifiers = get_case_identifiers(folder)
     p = Pool(threads)
     npz_files = [os.path.join(folder, i + ".npz") for i in case_identifiers]
@@ -75,7 +75,7 @@ if __name__ == '__main__':
     if not os.path.exists(target_dir):
         os.mkdir(target_dir)
 
-    pool = Pool(processes=4)
+    pool = Pool(processes=8)
     p1 = pool.map(mp_pack, enumerate(info_list), chunksize=1)
     pool.close()
     pool.join()

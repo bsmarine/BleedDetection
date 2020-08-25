@@ -204,8 +204,8 @@ def create_data_gen_pipeline(patient_data, cf, is_training=True):
     my_transforms.append(ConvertSegToBoundingBoxCoordinates(cf.dim, get_rois_from_seg_flag=False, class_specific_seg_flag=cf.class_specific_seg_flag))
     all_transforms = Compose(my_transforms)
     
-    multithreaded_generator = SingleThreadedAugmenter(data_gen, all_transforms)
-    #multithreaded_generator = MultiThreadedAugmenter(data_gen, all_transforms, num_processes=cf.n_workers, seeds=range(cf.n_workers))
+    #multithreaded_generator = SingleThreadedAugmenter(data_gen, all_transforms)
+    multithreaded_generator = MultiThreadedAugmenter(data_gen, all_transforms, num_processes=cf.n_workers, seeds=range(cf.n_workers))
     return multithreaded_generator
 
 
@@ -463,7 +463,7 @@ def copy_and_unpack_data(logger, pids, fold_dir, source_dir, target_dir):
 
     subprocess.call('rsync -av --files-from {} {} {}'.format(os.path.join(fold_dir, 'file_list.txt'),
         source_dir, target_dir), shell=True)
-    n_threads = 8
+    n_threads = 1
     dutils.unpack_dataset(target_dir, threads=n_threads)
     copied_files = os.listdir(target_dir)
     t = utils.get_formatted_duration(time.time() - start_time)
