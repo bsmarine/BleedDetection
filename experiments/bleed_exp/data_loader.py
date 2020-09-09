@@ -51,7 +51,7 @@ def get_train_generators(cf, logger):
     all_data = load_dataset(cf, logger)
     all_pids_list = np.unique([v['pid'] for (k, v) in all_data.items()])
 
-    splits_file = os.path.join(cf.exp_dir, 'fold_ids.pickle')
+    splits_file = os.path.join(cf.exp_dir, 'folds_ids.pickle')
     if not os.path.exists(splits_file) and not cf.created_fold_id_pickle:
         fg = dutils.fold_generator(seed=cf.seed, n_splits=cf.n_cv_splits, len_data=len(all_pids_list)).get_fold_names()
         with open(splits_file, 'wb') as handle:
@@ -97,7 +97,7 @@ def get_test_generator(cf, logger):
         test_ix = np.arange((len(os.listdir(cf.pp_test_data_path))/3)-2,dtype=np.int16)
     else:
         pp_name = None
-        with open(os.path.join(cf.exp_dir, 'fold_ids.pickle'), 'rb') as handle:
+        with open(os.path.join(cf.exp_dir, 'folds_ids.pickle'), 'rb') as handle:
             fold_list = pickle.load(handle)
         _, _, test_ix, _ = fold_list[cf.fold]
         # warnings.warn('WARNING: using validation set for testing!!!')

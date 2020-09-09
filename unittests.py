@@ -328,7 +328,7 @@ class VerifyFoldSplits(unittest.TestCase):
 
     def test(self):
         exp_dir = "/home/gregor/networkdrives/E132-Cluster-Projects/lidc_exp/experiments/042/retinau2d"
-        check_file = os.path.join(exp_dir, 'fold_ids.pickle')
+        check_file = os.path.join(exp_dir, 'folds_ids.pickle')
         with open(check_file, 'rb') as handle:
             splits = pickle.load(handle)
         self.verify_fold_ids(splits)
@@ -340,7 +340,7 @@ class CompareFoldSplits(unittest.TestCase):
     @staticmethod
     def group_id_paths(ref_exp_dir, comp_exp_dirs):
 
-        f_name = 'fold_ids.pickle'
+        f_name = 'folds_ids.pickle'
 
         ref_paths = os.path.join(ref_exp_dir, f_name)
         assert os.path.isfile(ref_paths), "ref file {} does not exist.".format(ref_paths)

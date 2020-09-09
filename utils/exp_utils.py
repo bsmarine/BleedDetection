@@ -193,8 +193,8 @@ def prep_exp(dataset_path, exp_path, server_env, use_stored_settings=True, is_tr
             cf = cf_file.configs(server_env)
             subprocess.call('cp {} {}'.format(cf.model_path, os.path.join(exp_path, 'model.py')), shell=True)
             subprocess.call('cp {} {}'.format(cf.backbone_path, os.path.join(exp_path, 'backbone.py')), shell=True)
-            if os.path.isfile(os.path.join(exp_path, "fold_ids.pickle")):
-                subprocess.call('rm {}'.format(os.path.join(exp_path, "fold_ids.pickle")), shell=True)
+            if os.path.isfile(os.path.join(exp_path, "folds_ids.pickle")):
+                subprocess.call('rm {}'.format(os.path.join(exp_path, "folds_ids.pickle")), shell=True)
 
     else:
         # testing, use model and backbone stored in exp dir.

@@ -113,9 +113,9 @@ class configs(DefaultConfigs):
         #  Schedule / Selection #
         #########################
 
-        self.num_epochs = 100
-        self.num_train_batches = 200 if self.dim == 2 else 100
-        self.batch_size = 20 if self.dim == 2 else 8
+        self.num_epochs = 1
+        self.num_train_batches = 200 if self.dim == 2 else 2
+        self.batch_size = 20 if self.dim == 2 else 2
 
         self.do_validation = True
         # decide whether to validate on entire patient volumes (like testing) or sampled patches (like training)
