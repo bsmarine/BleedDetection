@@ -31,9 +31,9 @@ class configs(DefaultConfigs):
         self.multiphase = True
         self.pp_mp_cf = 'preprocessing_config_bleed.json'
         self.mp_setting = "three-phase"
-        self.root_dir = '/home/marinb02/data/bodyBleed'
-        self.raw_data_dir = '{}/raw_data/concat_test'.format(self.root_dir)
-        self.pp_dir = '{}/preprocessed_data/concat_test_2'.format(self.root_dir)
+        self.root_dir = '/home/aisinai/data/'
+        self.raw_data_dir = '{}/raw_data/pre_pp_groin_full'.format(self.root_dir)
+        self.pp_dir = '{}/preprocessed_data/pp_groin_full'.format(self.root_dir)
         self.target_spacing = (1.0, 1.0, 1.0)
 
         #########################
@@ -53,7 +53,7 @@ class configs(DefaultConfigs):
         self.select_prototype_subset = None
 
         # path to preprocessed data.
-        self.pp_name = 'pp_128_all_pn'
+        self.pp_name = 'pp_groin_full'
         self.input_df_name = 'info_df.pickle'
         self.pp_data_path = '/home/aisinai/data/preprocessed_data/{}'.format(self.pp_name)
         self.pp_test_data_path = self.pp_data_path #change if test_data in separate folder.
@@ -78,8 +78,8 @@ class configs(DefaultConfigs):
         # patch_size to be used for training. pre_crop_size is the patch_size before data augmentation.
         self.pre_crop_size_2D = [300, 300]
         self.patch_size_2D = [288, 288]
-        self.pre_crop_size_3D = [128, 128,128]
-        self.patch_size_3D = [128,128,128]
+        self.pre_crop_size_3D = [768, 512,512]
+        self.patch_size_3D = [256,256,256]
         self.patch_size = self.patch_size_2D if self.dim == 2 else self.patch_size_3D
         self.pre_crop_size = self.pre_crop_size_2D if self.dim == 2 else self.pre_crop_size_3D
 
@@ -113,9 +113,9 @@ class configs(DefaultConfigs):
         #  Schedule / Selection #
         #########################
 
-        self.num_epochs = 1
-        self.num_train_batches = 200 if self.dim == 2 else 2
-        self.batch_size = 20 if self.dim == 2 else 2
+        self.num_epochs = 100
+        self.num_train_batches = 200 if self.dim == 2 else 100
+        self.batch_size = 20 if self.dim == 2 else 8
 
         self.do_validation = True
         # decide whether to validate on entire patient volumes (like testing) or sampled patches (like training)

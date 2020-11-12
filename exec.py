@@ -80,8 +80,10 @@ def train(logger):
 
     ####### Use this to create hdf5
     logger.info('loading dataset and initializing batch generators...')
+    print ("Start data loading...",time.time())
     batch_gen = data_loader.get_train_generators(cf, logger)
-    
+    print ("Finished batch gen data loading...",time.time())
+
     ####### Writing out train data to file
     #train_data = dict()
     #print ('Write training data to json')
@@ -100,12 +102,17 @@ def train(logger):
         train_results_list = []
         for bix in range(cf.num_train_batches):
             ######### Insert call to grab right training data fold from hdf5
+            print ("Grab next batch from batch gen data loader ...",time.time())
+            ##Stalled
             batch = next(batch_gen['train']) ######## Instead of this line, grab a batch from training data fold
             tic_fw = time.time()
+            print ("Start forward pass...",time.time())
             results_dict = net.train_forward(batch)
             tic_bw = time.time()
             optimizer.zero_grad()
+            print ("Start backward pass..",time.time())
             results_dict['torch_loss'].backward()
+            print ("Start optimizing...",time.time())
             optimizer.step()
             print('\rtr. batch {0}/{1} (ep. {2}) fw {3:.2f}s / bw {4:.2f} s / total {5:.2f} s || '.format(
                 bix + 1, cf.num_train_batches, epoch, tic_bw - tic_fw, time.time() - tic_bw,

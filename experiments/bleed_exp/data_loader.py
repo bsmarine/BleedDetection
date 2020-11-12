@@ -167,7 +167,7 @@ def load_dataset(cf, logger, subset_ixs=None, pp_data_path=None, pp_name=None):
         targets = [1 if ii >= 3 else 0 for ii in class_targets[ix]]
         data[pid] = {'data': imgs[ix], 'seg': segs[ix], 'pid': pid, 'class_target': targets}
         data[pid]['fg_slices'] = p_df['fg_slices'].tolist()[ix]
-
+    print ("Finish data loading in data loader..."),time.time()     
     return data
 
 
@@ -181,8 +181,9 @@ def create_data_gen_pipeline(patient_data, cf, is_training=True):
     """
 
     # create instance of batch generator as first element in pipeline.
+    print ("Start Batch generation...",time.time())
     data_gen = BatchGenerator(patient_data, batch_size=cf.batch_size, cf=cf)
-
+    print ("Finished Batch generation...",time.time())
     # add transformations to pipeline.
     my_transforms = []
     if is_training:
@@ -203,7 +204,7 @@ def create_data_gen_pipeline(patient_data, cf, is_training=True):
 
     my_transforms.append(ConvertSegToBoundingBoxCoordinates(cf.dim, get_rois_from_seg_flag=False, class_specific_seg_flag=cf.class_specific_seg_flag))
     all_transforms = Compose(my_transforms)
-    
+    print ("Start threaded augmenter...",time.time())
     #multithreaded_generator = SingleThreadedAugmenter(data_gen, all_transforms)
     multithreaded_generator = MultiThreadedAugmenter(data_gen, all_transforms, num_processes=cf.n_workers, seeds=range(cf.n_workers))
     return multithreaded_generator
@@ -348,7 +349,12 @@ class PatientBatchIterator(SlimDataLoaderBase):
 
         pid = self.dataset_pids[self.patient_ix]
         patient = self._data[pid]
-        data = np.transpose(np.load(patient['data'], mmap_mode='r'), axes=(3, 1, 2, 0))  ##[np.newaxis] (c, y, x, z)
+
+        data = np.load(patient['data'],mmap_mode='r')
+        if len(data.shape)==4:
+             data = np.transpose(data, axes=(3, 1, 2, 0))  ##[np.newaxis] (c, y, x, z)
+        else:
+             data = np.transpose(data, axes=(1, 2, 0))[np.newaxis] # (c, y, x, z)
         seg = np.transpose(np.load(patient['seg'], mmap_mode='r'), axes=(1, 2, 0))
         batch_class_targets = np.array([patient['class_target']])
 
