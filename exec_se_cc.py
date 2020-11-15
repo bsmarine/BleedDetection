@@ -37,7 +37,6 @@ for msg in ["Attempting to set identical bottom==top results",
             ".*Mean of empty slice.*"]:
     warnings.filterwarnings("ignore", msg)
 
-
 def train(logger):
     """
     perform the training routine for a given fold. saves plots and selected parameters to the experiment dir
@@ -45,8 +44,14 @@ def train(logger):
     """
     logger.info('performing training in {}D over fold {} on experiment {} with model {}'.format(
         cf.dim, cf.fold, cf.exp_dir, cf.model))
-
+###Brett Changing Code Here
     net = model.net(cf, logger).cuda()
+    #net = model.net(cf, logger) # DETACHING FOR GRADIENT CHECKING
+    
+    #logger.info("Testing SGD Optimizer")
+    #optimizer = torch.optim.SGD(net.parameters(), lr=0.0001, momentum=0.9)
+
+
     if hasattr(cf, "optimizer") and cf.optimizer.lower() == "adam":
         logger.info("Using Adam optimizer.")
         optimizer = torch.optim.Adam(utils.parse_params_for_optim(net, weight_decay=cf.weight_decay,
@@ -106,6 +111,19 @@ def train(logger):
             tic_bw = time.time()
             optimizer.zero_grad()
             results_dict['torch_loss'].backward()
+            
+            ## GRADIENT CHECK
+            t_batch = torch.from_numpy(batch['data'])
+            t_batch.requires_grad_(True)
+            print("Passed gradient check: {}".format(torch.autograd.gradcheck(net, t_batch)))
+
+            ## CONVERT TO FLOAT
+            net.float()
+
+            # CLIP GRADIENT
+            clip = 1
+            torch.nn.utils.clip_grad_norm_(net.parameters(), clip)
+
             optimizer.step()
             print('\rtr. batch {0}/{1} (ep. {2}) fw {3:.2f}s / bw {4:.2f} s / total {5:.2f} s || '.format(
                 bix + 1, cf.num_train_batches, epoch, tic_bw - tic_fw, time.time() - tic_bw,
@@ -202,11 +220,17 @@ if __name__ == '__main__':
     parser.add_argument('--no_benchmark', action='store_true', help="Do not use cudnn.benchmark.")
     parser.add_argument('--cuda_device', type=int, default=0, help="Index of CUDA device to use.")
     parser.add_argument('-d', '--dev', default=False, action='store_true', help="development mode: shorten everything")
+    # SE INSERT
+    parser.add_argument('--se_placement', type=str, default = 'none_given', help="SE module placement; options: 'cX_out' (after encoder layer), 'PX_pre_out' (from encoder to decoder layer), 'PX_out' (after decoder layer), or any combination of these in one string, separated by spaces (e.g. 'cX_out PX_pre_out'). Otherwise, 'none' or don't include this flag for no SE modules")
+    ####
 
     args = parser.parse_args()
     folds = args.folds
 
     torch.backends.cudnn.benchmark = not args.no_benchmark
+    
+    #### MANUAL SEED
+    torch.manual_seed(0)
 
     ########### Creating hdf5 
     #if args.mode = 'create_hdf5':
@@ -226,6 +250,13 @@ if __name__ == '__main__':
             cf.num_train_batches, cf.num_val_batches, cf.max_val_patients = 5, 1, 1
             cf.test_n_epochs =  cf.save_n_models
             cf.max_test_patients = 2
+
+        # SE INSERT
+        # Set SE Module Placement
+        # if 'none_given', defaults to value in the config file
+        if args.se_placement != 'none_given':
+            cf.se_placement = args.se_placement.lower()
+        ######
 
         cf.data_dest = args.data_dest
         logger = utils.get_logger(cf.exp_dir, cf.server_env)
@@ -259,7 +290,7 @@ if __name__ == '__main__':
                   all_preds.to_csv(os.path.join(cf.test_dir,"all_folds_test.csv"))
 
                 #Concatenate detection raw boxes across folds
-                  det_frames = [pd.read_pickle(os.path.join(cf.exp_dir,f,'raw_pred_boxes_list.pickle')) for f in os.listdir(cf.exp_dir) if 'fold_' in f]
+                  det_frames = [pd.read_pickle(os.path.join(cf.exp_dir,f,'raw_pred_boxes_list.pickle')) for f in os.listdir(cf.exp_dir) if ('fold_' in f) and not ('.pickle' in f)]
                   all_dets=list()
                   for i in det_frames:
                     all_dets.extend(i)
@@ -267,7 +298,7 @@ if __name__ == '__main__':
                     pickle.dump(all_dets, handle)
 
                 #Concatenate detection wbc boxes across folds
-                  det_frames = [pd.read_pickle(os.path.join(cf.exp_dir,f,'wbc_pred_boxes_list.pickle')) for f in os.listdir(cf.exp_dir) if 'fold_' in f]
+                  det_frames = [pd.read_pickle(os.path.join(cf.exp_dir,f,'wbc_pred_boxes_list.pickle')) for f in os.listdir(cf.exp_dir) if ('fold_' in f) and not ('.pickle' in f)]
                   all_dets=list()
                   for i in det_frames:
                     all_dets.extend(i)
@@ -302,7 +333,7 @@ if __name__ == '__main__':
                   all_preds.to_csv(os.path.join(cf.test_dir,"all_folds_test.csv"))
 
                 #Concatenate detection raw boxes across folds
-                  det_frames = [pd.read_pickle(os.path.join(cf.exp_dir,f,'raw_pred_boxes_list.pickle')) for f in os.listdir(cf.exp_dir) if 'fold_' in f]
+                  det_frames = [pd.read_pickle(os.path.join(cf.exp_dir,f,'raw_pred_boxes_list.pickle')) for f in os.listdir(cf.exp_dir) if ('fold_' in f) and not ('.pickle' in f)]
                   all_dets=list()
                   for i in det_frames:
                     all_dets.extend(i)
@@ -310,7 +341,7 @@ if __name__ == '__main__':
                     pickle.dump(all_dets, handle)
 
                 #Concatenate detection wbc boxes across folds
-                  det_frames = [pd.read_pickle(os.path.join(cf.exp_dir,f,'wbc_pred_boxes_list.pickle')) for f in os.listdir(cf.exp_dir) if 'fold_' in f]
+                  det_frames = [pd.read_pickle(os.path.join(cf.exp_dir,f,'wbc_pred_boxes_list.pickle')) for f in os.listdir(cf.exp_dir) if ('fold_' in f) and not ('.pickle' in f)]
                   all_dets=list()
                   for i in det_frames:
                     all_dets.extend(i)
@@ -338,7 +369,7 @@ if __name__ == '__main__':
 
         else:
             fold_dirs = sorted([os.path.join(cf.exp_dir, f) for f in os.listdir(cf.exp_dir) if
-                         os.path.isdir(os.path.join(cf.exp_dir, f)) and f.startswith("fold")])
+                         os.path.isdir(os.path.join(cf.exp_dir, f)) and f.startswith("fold") and not ('.pickle' in f)])
             if folds is None:
                 folds = range(cf.n_cv_splits)
             for fold in folds:

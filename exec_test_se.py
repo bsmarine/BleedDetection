@@ -20,8 +20,7 @@ import code
 import argparse
 import os, warnings
 import time
-import pandas as pd
-import pickle
+import pandas
 
 import torch
 
@@ -178,6 +177,28 @@ def test(logger):
     test_evaluator.evaluate_predictions(test_results_list)
     test_evaluator.score_test_df()
 
+    #Concatenate test results data frames across folds
+"""
+    if self.cf.hold_out_test_set == False:
+      test_frames = [pd.read_pickle(os.path.join(self.cf.test_dir,f)) for f  in os.listdir(self.cf.test_dir) if '_test_df.pickle' in f] 
+      all_preds = pd.concat(test_frames)
+      all_preds.to_csv(os.path.join(self.cf.test_dir,"all_folds_test.csv"))
+
+    #Concatenate detection raw boxes across folds
+      det_frames = [pd.read_pickle(os.path.join(self.cf.exp_dir,f,'raw_pred_boxes_list.pickle')) for f in os.listdir(self.cf.exp_dir) if 'fold' in f] 
+      for i in det_frames:
+        all_dets.extend(i)
+      with open(os.path.join(self.cf.exp_dir, 'all_raw_dets.pickle'), 'wb') as handle:
+            pickle.dump(all_dets, handle)
+
+    #Concatenate detection wbc boxes across folds
+      det_frames = [pd.read_pickle(os.path.join(self.cf.exp_dir,f,'wbc_pred_boxes_list.pickle')) for f in os.listdir(self.cf.exp_dir) if 'fold' in f]
+      for i in det_frames:
+        all_dets.extend(i)
+      with open(os.path.join(self.cf.exp_dir, 'all_wbc_dets.pickle'), 'wb') as handle:
+            pickle.dump(all_dets, handle)
+"""
+
 if __name__ == '__main__':
     stime = time.time()
 
@@ -202,7 +223,11 @@ if __name__ == '__main__':
     parser.add_argument('--no_benchmark', action='store_true', help="Do not use cudnn.benchmark.")
     parser.add_argument('--cuda_device', type=int, default=0, help="Index of CUDA device to use.")
     parser.add_argument('-d', '--dev', default=False, action='store_true', help="development mode: shorten everything")
-
+    
+    # SE INSERT
+    parser.add_argument('--se_placement', type=str, default = 'none_given', help="SE module placement; options: 'cX_out' (after encoder layer), 'PX_pre_out' (from encoder to decoder layer), 'PX_out' (after decoder layer), or any combination of these in one string, separated by spaces (e.g. 'cX_out PX_pre_out'). Otherwise, 'none' or don't include this flag for no SE modules")
+    ####
+    
     args = parser.parse_args()
     folds = args.folds
 
@@ -227,6 +252,13 @@ if __name__ == '__main__':
             cf.test_n_epochs =  cf.save_n_models
             cf.max_test_patients = 2
 
+        # SE INSERT
+        # Set SE Module Placement
+        # if 'none_given', defaults to value in the config file
+        if args.se_placement != 'none_given':
+            cf.se_placement = args.se_placement.lower()
+        ######
+        
         cf.data_dest = args.data_dest
         logger = utils.get_logger(cf.exp_dir, cf.server_env)
         logger.info("cudnn benchmark: {}, deterministic: {}.".format(torch.backends.cudnn.benchmark,
@@ -250,29 +282,6 @@ if __name__ == '__main__':
                 cf.resume = False
                 if args.mode == 'train_test':
                     test(logger)
-                
-                #Concatenate test results by detection
-
-            if cf.hold_out_test_set == False:
-                  test_frames = [pd.read_pickle(os.path.join(cf.test_dir,f)) for f  in os.listdir(cf.test_dir) if '_test_df.pickle' in f]
-                  all_preds = pd.concat(test_frames)
-                  all_preds.to_csv(os.path.join(cf.test_dir,"all_folds_test.csv"))
-
-                #Concatenate detection raw boxes across folds
-                  det_frames = [pd.read_pickle(os.path.join(cf.exp_dir,f,'raw_pred_boxes_list.pickle')) for f in os.listdir(cf.exp_dir) if 'fold_' in f]
-                  all_dets=list()
-                  for i in det_frames:
-                    all_dets.extend(i)
-                  with open(os.path.join(cf.exp_dir, 'all_raw_dets.pickle'), 'wb') as handle:
-                    pickle.dump(all_dets, handle)
-
-                #Concatenate detection wbc boxes across folds
-                  det_frames = [pd.read_pickle(os.path.join(cf.exp_dir,f,'wbc_pred_boxes_list.pickle')) for f in os.listdir(cf.exp_dir) if 'fold_' in f]
-                  all_dets=list()
-                  for i in det_frames:
-                    all_dets.extend(i)
-                  with open(os.path.join(cf.exp_dir, 'all_wbc_dets.pickle'), 'wb') as handle:
-                    pickle.dump(all_dets, handle)
 
     elif args.mode == 'test':
 
@@ -296,26 +305,6 @@ if __name__ == '__main__':
                 logger.set_logfile(fold=fold)
                 test(logger)
 
-            if cf.hold_out_test_set == False:
-                  test_frames = [pd.read_pickle(os.path.join(cf.test_dir,f)) for f  in os.listdir(cf.test_dir) if '_test_df.pickle' in f] 
-                  all_preds = pd.concat(test_frames)
-                  all_preds.to_csv(os.path.join(cf.test_dir,"all_folds_test.csv"))
-
-                #Concatenate detection raw boxes across folds
-                  det_frames = [pd.read_pickle(os.path.join(cf.exp_dir,f,'raw_pred_boxes_list.pickle')) for f in os.listdir(cf.exp_dir) if 'fold_' in f]
-                  all_dets=list()
-                  for i in det_frames:
-                    all_dets.extend(i)
-                  with open(os.path.join(cf.exp_dir, 'all_raw_dets.pickle'), 'wb') as handle:
-                    pickle.dump(all_dets, handle)
-
-                #Concatenate detection wbc boxes across folds
-                  det_frames = [pd.read_pickle(os.path.join(cf.exp_dir,f,'wbc_pred_boxes_list.pickle')) for f in os.listdir(cf.exp_dir) if 'fold_' in f]
-                  all_dets=list()
-                  for i in det_frames:
-                    all_dets.extend(i)
-                  with open(os.path.join(cf.exp_dir, 'all_wbc_dets.pickle'), 'wb') as handle:
-                    pickle.dump(all_dets, handle)
 
     # load raw predictions saved by predictor during testing, run aggregation algorithms and evaluation.
     elif args.mode == 'analysis':
