@@ -32,7 +32,7 @@ class DefaultConfigs:
         self.select_prototype_subset = None
 
         # some default paths.
-        self.backbone_path = 'models/backbone_se2.py'
+        self.backbone_path = 'models/backbone_se.py'
         self.source_dir = os.path.dirname(os.path.realpath(__file__)) #current dir.
         self.input_df_name = 'info_df.pickle'
         self.model_path = 'models/{}.py'.format(self.model)
@@ -48,7 +48,7 @@ class DefaultConfigs:
         self.seed = 0
 
         #number of threads for multithreaded batch generation.
-        self.n_workers = 4 if server_env else 2 ## os.cpu_count()-1
+        self.n_workers = 4 if server_env else 8 #os.cpu_count()-1
 
         # if True, segmentation losses learn all categories, else only foreground vs. background.
         self.class_specific_seg_flag = False
@@ -122,8 +122,6 @@ class DefaultConfigs:
 
         # select a maximum number of patient cases to test. number or "all" for all
         self.max_test_patients = "all"
-
-
 
         #########################
         #   MRCNN               #

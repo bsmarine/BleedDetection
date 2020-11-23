@@ -31,9 +31,9 @@ class configs(DefaultConfigs):
         self.multiphase = True
         self.pp_mp_cf = 'preprocessing_config_bleed.json'
         self.mp_setting = "three-phase"
-        self.root_dir = '/home/aisinai/data/'
-        self.raw_data_dir = '{}/raw_data/pre_pp_groin_full'.format(self.root_dir)
-        self.pp_dir = '{}/preprocessed_data/pp_groin_full'.format(self.root_dir)
+        self.root_dir = '/home/aisinai/data'
+        self.raw_data_dir = '{}/preprocessed_data/pp_bleedPosNegEven_concat/Train'.format(self.root_dir)
+        self.pp_dir = '{}/preprocessed_data/Train'.format(self.root_dir)
         self.target_spacing = (1.0, 1.0, 1.0)
 
         #########################
@@ -53,7 +53,7 @@ class configs(DefaultConfigs):
         self.select_prototype_subset = None
 
         # path to preprocessed data.
-        self.pp_name = 'pp_groin_full'
+        self.pp_name = 'concat_test'
         self.input_df_name = 'info_df.pickle'
         self.pp_data_path = '/home/aisinai/data/preprocessed_data/{}'.format(self.pp_name)
         self.pp_test_data_path = self.pp_data_path #change if test_data in separate folder.
@@ -61,7 +61,7 @@ class configs(DefaultConfigs):
         # settings for deployment in cloud.
         if server_env:
             # path to preprocessed data.
-            self.pp_name = 'pp_fg_slices'
+            self.pp_name = 'concat_test'
             self.crop_name = 'pp_fg_slices_packed'
             self.pp_data_path = '/path/to/preprocessed/data/{}/{}'.format(self.pp_name, self.crop_name)
             self.pp_test_data_path = self.pp_data_path
@@ -78,8 +78,8 @@ class configs(DefaultConfigs):
         # patch_size to be used for training. pre_crop_size is the patch_size before data augmentation.
         self.pre_crop_size_2D = [300, 300]
         self.patch_size_2D = [288, 288]
-        self.pre_crop_size_3D = [768, 512,512]
-        self.patch_size_3D = [256,256,256]
+        self.pre_crop_size_3D = [256, 256, 256]
+        self.patch_size_3D = [128, 128, 128]
         self.patch_size = self.patch_size_2D if self.dim == 2 else self.patch_size_3D
         self.pre_crop_size = self.pre_crop_size_2D if self.dim == 2 else self.pre_crop_size_3D
 
@@ -108,23 +108,14 @@ class configs(DefaultConfigs):
 
         # one of 'xavier_uniform', 'xavier_normal', or 'kaiming_normal', None (=default = 'kaiming_uniform')
         self.weight_init = None
-        
-        # SE MODULE PLACEMENT in the ResNet backbone
-        # Options: 'cX_out' (after encoder layer), 'PX_pre_out' (from encoder to decoder layer), 'PX_out' (after decoder layer), or any combination of these in one string, separated by spaces (e.g. 'cX_out PX_pre_out'). Otherwise, 'none' for no SE modules'
-        # SE module placement can also be set from the command line with flag '--se_placement'
-
-        self.se_placement = 'none'
-        self.SE_reduction_ratio = 2
 
         #########################
         #  Schedule / Selection #
         #########################
-        self.num_epochs = 100
-        self.num_train_batches = 200 if self.dim == 2 else 100
+
+        self.num_epochs = 1
+        self.num_train_batches = 200 if self.dim == 2 else 1
         self.batch_size = 20 if self.dim == 2 else 8
-        #self.num_epochs = 2
-        #self.num_train_batches = 1 if self.dim == 2 else 10
-        #self.batch_size = 20 if self.dim == 2 else 8
 
         self.do_validation = True
         # decide whether to validate on entire patient volumes (like testing) or sampled patches (like training)
@@ -215,8 +206,7 @@ class configs(DefaultConfigs):
 
     def add_det_unet_configs(self):
 
-        self.learning_rate = [1e-8] * self.num_epochs
-        #self.learning_rate = [1e-8] * self.num_epochs
+        self.learning_rate = [1e-4] * self.num_epochs
 
         # aggregation from pixel perdiction to object scores (connected component). One of ['max', 'median']
         self.aggregation_operation = 'max'
@@ -250,7 +240,7 @@ class configs(DefaultConfigs):
         self.return_masks_in_test = False
 
         # set number of proposal boxes to plot after each epoch.
-        self.n_plot_rpn_props = 5 if self.dim == 2 else 5 #30
+        self.n_plot_rpn_props = 5 if self.dim == 2 else 30
 
         # number of classes for head networks: n_foreground_classes + 1 (background)
         self.head_classes = 2
@@ -259,11 +249,11 @@ class configs(DefaultConfigs):
         self.num_seg_classes = 1  # foreground vs. background
 
         # feature map strides per pyramid level are inferred from architecture.
-        self.backbone_strides = {'xy': [4, 8, 16, 32], 'z': [4, 8, 16, 32]}
+        self.backbone_strides = {'xy': [4, 8, 16, 32], 'z': [1, 2, 4, 8]}
 
         # anchor scales are chosen according to expected object sizes in data set. Default uses only one anchor scale
         # per pyramid level. (outer list are pyramid levels (corresponding to BACKBONE_STRIDES), inner list are scales per level.)
-        self.rpn_anchor_scales = {'xy': [[8], [16], [32], [64]], 'z': [[8], [16], [32], [64]]}
+        self.rpn_anchor_scales = {'xy': [[8], [16], [32], [64]], 'z': [[2], [4], [8], [16]]}
 
         # choose which pyramid levels to extract features from: P2: 0, P3: 1, P4: 2, P5: 3.
         self.pyramid_levels = [0, 1, 2, 3]
@@ -288,9 +278,9 @@ class configs(DefaultConfigs):
         # poolsize to draw top-k candidates from will be shem_poolsize * n_negative_samples.
         self.shem_poolsize = 10
 
-        self.pool_size = (7, 7) if self.dim == 2 else (7, 7, 7)
-        self.mask_pool_size = (14, 14) if self.dim == 2 else (14, 14, 14)
-        self.mask_shape = (28, 28) if self.dim == 2 else (28, 28, 28)
+        self.pool_size = (7, 7) if self.dim == 2 else (7, 7, 3)
+        self.mask_pool_size = (14, 14) if self.dim == 2 else (14, 14, 5)
+        self.mask_shape = (28, 28) if self.dim == 2 else (28, 28, 10)
 
         self.rpn_bbox_std_dev = np.array([0.1, 0.1, 0.1, 0.2, 0.2, 0.2])
         self.bbox_std_dev = np.array([0.1, 0.1, 0.1, 0.2, 0.2, 0.2])

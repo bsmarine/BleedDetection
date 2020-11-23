@@ -357,15 +357,7 @@ def refine_proposals(rpn_pred_probs, rpn_pred_deltas, proposal_count, batch_anch
         # concat box and score info for monitoring/plotting.
         batch_out_proposals.append(torch.cat((boxes, rpn_scores), 1).cpu().data.numpy())
         # normalize dimensions to range of 0 to 1.
-        EPSILON = 1e-7 # seeing if this prevents division by 0
-        normalized_boxes = boxes / (norm + EPSILON) 
-        
-        ### TEST PRINT
-        #print("\nboxes: {}\n".format(boxes))
-        #print("norm: {}\n".format(norm))
-        #print("normalized_boxes: {}\n\n".format(normalized_boxes))
-        ###
-
+        normalized_boxes = boxes / norm
         assert torch.all(normalized_boxes <= 1), "normalized box coords >1 found"
 
         # add again batch dimension
@@ -948,7 +940,10 @@ class net(nn.Module):
         # build Anchors, FPN, RPN, Classifier / Bbox-Regressor -head, Mask-head
         self.np_anchors = mutils.generate_pyramid_anchors(self.logger, self.cf)
         self.anchors = torch.from_numpy(self.np_anchors).float().cuda()
+        
+        # Backbone imported here
         self.fpn = backbone.FPN(self.cf, conv)
+        
         self.rpn = RPN(self.cf, conv)
         self.classifier = Classifier(self.cf, conv)
         self.mask = Mask(self.cf, conv)
@@ -1103,10 +1098,8 @@ class net(nn.Module):
         :return: detection_masks: (n_final_detections, n_classes, y, x, (z)) raw molded masks as returned by mask-head.
         """
         # extract features.
-        print("\n############################ Backbone FPN called ###############################")
-        #print("Image fed to FPN nans? {}".format(torch.isnan(img)))
-        print("Image fed to FPN [any nans?]: {}\n".format(torch.any(torch.isnan(img))))
         fpn_outs = self.fpn(img)
+        
         rpn_feature_maps = [fpn_outs[i] for i in self.cf.pyramid_levels]
         self.mrcnn_feature_maps = rpn_feature_maps
 
@@ -1114,6 +1107,7 @@ class net(nn.Module):
         layer_outputs = []  # list of lists
         for p in rpn_feature_maps:
             layer_outputs.append(self.rpn(p))
+
         # concatenate layer outputs.
         # convert from list of lists of level outputs to list of lists of outputs across levels.
         # e.g. [[a1, b1, c1], [a2, b2, c2]] => [[a1, a2], [b1, b2], [c1, c2]]
@@ -1123,9 +1117,7 @@ class net(nn.Module):
 
         # generate proposals: apply predicted deltas to anchors and filter by foreground scores from RPN classifier.
         proposal_count = self.cf.post_nms_rois_training if is_training else self.cf.post_nms_rois_inference
-        print("\n############# REFINE PROPOSALS CALLED #############\n")
         batch_rpn_rois, batch_proposal_boxes = refine_proposals(rpn_pred_probs, rpn_pred_deltas, proposal_count, self.anchors, self.cf)
-        print("\n###################################################\n")
 
         # merge batch dimension of proposals while storing allocation info in coordinate dimension.
         batch_ixs = torch.from_numpy(np.repeat(np.arange(batch_rpn_rois.shape[0]), batch_rpn_rois.shape[1])).float().cuda()
