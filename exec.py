@@ -22,6 +22,7 @@ import os, warnings
 import time
 import pandas as pd
 import pickle
+import sys
 
 import torch
 
@@ -29,6 +30,7 @@ import utils.exp_utils as utils
 from evaluator import Evaluator
 from predictor import Predictor
 from plotting import plot_batch_prediction
+from datetime import datetime
 
 for msg in ["Attempting to set identical bottom==top results",
             "This figure includes Axes that are not compatible with tight_layout",
@@ -43,6 +45,7 @@ def train(logger):
     perform the training routine for a given fold. saves plots and selected parameters to the experiment dir
     specified in the configs.
     """
+    time_start_train = time.time()
     logger.info('performing training in {}D over fold {} on experiment {} with model {}'.format(
         cf.dim, cf.fold, cf.exp_dir, cf.model))
 
@@ -80,9 +83,9 @@ def train(logger):
 
     ####### Use this to create hdf5
     logger.info('loading dataset and initializing batch generators...')
-    print ("Start data loading...",time.time())
+    print ("Starting data_loader.get_train_generators in exec...",datetime.now().strftime("%m/%d/%Y %H:%M:%S:%f"))
     batch_gen = data_loader.get_train_generators(cf, logger)
-    print ("Finished batch gen data loading...",time.time())
+    print ("Finished data_loader.get_train_generators in exec...",datetime.now().strftime("%m/%d/%Y %H:%M:%S:%f"))
 
     ####### Writing out train data to file
     #train_data = dict()
@@ -102,7 +105,7 @@ def train(logger):
         train_results_list = []
         for bix in range(cf.num_train_batches):
             ######### Insert call to grab right training data fold from hdf5
-            print ("Grab next batch from batch gen data loader ...",time.time())
+            print ("Get next batch_gen['train] ...",datetime.now().strftime("%m/%d/%Y %H:%M:%S:%f"))
             ##Stalled
             batch = next(batch_gen['train']) ######## Instead of this line, grab a batch from training data fold
             tic_fw = time.time()
@@ -110,15 +113,16 @@ def train(logger):
             results_dict = net.train_forward(batch)
             tic_bw = time.time()
             optimizer.zero_grad()
-            print ("Start backward pass..",time.time())
+            print ("Start backward pass..",datetime.now().strftime("%m/%d/%Y %H:%M:%S:%f"))
             results_dict['torch_loss'].backward()
-            print ("Start optimizing...",time.time())
+            print ("Start optimizing...",datetime.now().strftime("%m/%d/%Y %H:%M:%S:%f"))
             optimizer.step()
             print('\rtr. batch {0}/{1} (ep. {2}) fw {3:.2f}s / bw {4:.2f} s / total {5:.2f} s || '.format(
                 bix + 1, cf.num_train_batches, epoch, tic_bw - tic_fw, time.time() - tic_bw,
                 time.time() - tic_fw) + results_dict['logger_string'], flush=True, end="")
+            print ("Results Dict Size: ",sys.getsizeof(results_dict))
             train_results_list.append(({k:v for k,v in results_dict.items() if k != "seg_preds"}, batch["pid"]))
-        print()
+            print("Loop through train batch DONE",datetime.now().strftime("%m/%d/%Y %H:%M:%S:%f"),(time.time()-time_start_train)/60, "minutes since training started")
 
         _, monitor_metrics['train'] = train_evaluator.evaluate_predictions(train_results_list, monitor_metrics['train'])
 

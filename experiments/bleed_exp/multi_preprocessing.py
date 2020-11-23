@@ -55,7 +55,7 @@ def pp_patient(inputs):
         #img_arr = resample_array(img_arr, img.GetSpacing(), cf.target_spacing) #already re-sampled in prior pre-processing
         img_arr = np.clip(img_arr, -1200, 600)
         #img_arr = (1200 + img_arr) / (600 + 1200) * 255  # a+x / (b-a) * (c-d) (c, d = new)
-        img_arr = img_arr.astype(np.float32)
+        img_arr = img_arr.astype(np.float16)
         img_arr = (img_arr - np.mean(img_arr)) / np.std(img_arr).astype(np.float16)
         concat_images.append(img_arr)
         
@@ -168,7 +168,7 @@ def resample_array(src_imgs, src_spacing, target_spacing):
             raise AssertionError("AssertionError:", src_imgs.shape, src_spacing, target_spacing)
 
     img = src_imgs.astype(float)
-    resampled_img = resize(img, target_shape, order=1, clip=True, mode='edge').astype('float32')
+    resampled_img = resize(img, target_shape, order=1, clip=True, mode='edge').astype('float16')
 
     return resampled_img
 

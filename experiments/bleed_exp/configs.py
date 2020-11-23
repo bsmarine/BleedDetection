@@ -32,8 +32,8 @@ class configs(DefaultConfigs):
         self.pp_mp_cf = 'preprocessing_config_bleed.json'
         self.mp_setting = "three-phase"
         self.root_dir = '/home/aisinai/data/'
-        self.raw_data_dir = '{}/raw_data/pre_pp_groin_full'.format(self.root_dir)
-        self.pp_dir = '{}/preprocessed_data/pp_groin_full'.format(self.root_dir)
+        self.raw_data_dir = '{}/raw_data/rw_128_pn_all'.format(self.root_dir)
+        self.pp_dir = '{}/preprocessed_data/pp_128_all_pn_f16'.format(self.root_dir)
         self.target_spacing = (1.0, 1.0, 1.0)
 
         #########################
@@ -78,8 +78,8 @@ class configs(DefaultConfigs):
         # patch_size to be used for training. pre_crop_size is the patch_size before data augmentation.
         self.pre_crop_size_2D = [300, 300]
         self.patch_size_2D = [288, 288]
-        self.pre_crop_size_3D = [768, 512,512]
-        self.patch_size_3D = [256,256,256]
+        self.pre_crop_size_3D = [512,512,768]
+        self.patch_size_3D = [128,128,128]
         self.patch_size = self.patch_size_2D if self.dim == 2 else self.patch_size_3D
         self.pre_crop_size = self.pre_crop_size_2D if self.dim == 2 else self.pre_crop_size_3D
 

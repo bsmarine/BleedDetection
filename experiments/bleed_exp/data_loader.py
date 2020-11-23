@@ -41,6 +41,9 @@ from batchgenerators.transforms.utility_transforms import ConvertSegToBoundingBo
 import utils.dataloader_utils as dutils
 import utils.exp_utils as utils
 
+def convert(seconds): 
+    return time.strftime("%H:%M:%S:%f", time.gmtime(seconds)) 
+
 def get_train_generators(cf, logger):
     """
     wrapper function for creating the training batch generator pipeline. returns the train/val generators.
@@ -167,7 +170,7 @@ def load_dataset(cf, logger, subset_ixs=None, pp_data_path=None, pp_name=None):
         targets = [1 if ii >= 3 else 0 for ii in class_targets[ix]]
         data[pid] = {'data': imgs[ix], 'seg': segs[ix], 'pid': pid, 'class_target': targets}
         data[pid]['fg_slices'] = p_df['fg_slices'].tolist()[ix]
-    print ("Finish data loading in data loader..."),time.time()     
+    print ("Finished load_dataset...")   
     return data
 
 
@@ -181,9 +184,10 @@ def create_data_gen_pipeline(patient_data, cf, is_training=True):
     """
 
     # create instance of batch generator as first element in pipeline.
-    print ("Start Batch generation...",time.time())
+    print ("Start BatchGenerator create_data_gen_pipeline...",)
+    start = time.time()
     data_gen = BatchGenerator(patient_data, batch_size=cf.batch_size, cf=cf)
-    print ("Finished Batch generation...",time.time())
+    print ("Finished BatchGenerator create_data_gen_pipeline...",time.time()-start)
     # add transformations to pipeline.
     my_transforms = []
     if is_training:
@@ -204,9 +208,9 @@ def create_data_gen_pipeline(patient_data, cf, is_training=True):
 
     my_transforms.append(ConvertSegToBoundingBoxCoordinates(cf.dim, get_rois_from_seg_flag=False, class_specific_seg_flag=cf.class_specific_seg_flag))
     all_transforms = Compose(my_transforms)
-    print ("Start threaded augmenter...",time.time())
-    #multithreaded_generator = SingleThreadedAugmenter(data_gen, all_transforms)
-    multithreaded_generator = MultiThreadedAugmenter(data_gen, all_transforms, num_processes=cf.n_workers, seeds=range(cf.n_workers))
+    print ("Define MultiThreadedAugmenter...")
+    multithreaded_generator = SingleThreadedAugmenter(data_gen, all_transforms)
+    #multithreaded_generator = MultiThreadedAugmenter(data_gen, all_transforms, num_processes=cf.n_workers, seeds=range(cf.n_workers))
     return multithreaded_generator
 
 
@@ -239,10 +243,9 @@ class BatchGenerator(SlimDataLoaderBase):
             batch_ixs = np.random.choice(len(class_targets_list), self.batch_size)
 
         patients = list(self._data.items())
-
         for b in batch_ixs:
             patient = patients[b][1]
-
+            print (patients[b][0])
             # data shape: from (z,y,x,c) or (y,x,c) to (c, y, x, z) depending on input data shape.
             data = np.load(patient['data'],mmap_mode='r')
             if len(data.shape)==4:
@@ -252,7 +255,7 @@ class BatchGenerator(SlimDataLoaderBase):
             seg = np.transpose(np.load(patient['seg'], mmap_mode='r'), axes=(1, 2, 0))
             batch_pids.append(patient['pid'])
             batch_targets.append(patient['class_target'])
-
+            print ("Print data shape before sampling: ",data.shape)            
             if self.cf.dim == 2:
                 # draw random slice from patient while oversampling slices containing foreground objects with p_fg.
                 if len(patient['fg_slices']) > 0:
@@ -314,7 +317,8 @@ class BatchGenerator(SlimDataLoaderBase):
                     max_crop = int(sample_seg_center[ii] + self.cf.pre_crop_size[ii] // 2)
                     data = np.take(data, indices=range(min_crop, max_crop), axis=ii + 1)
                     seg = np.take(seg, indices=range(min_crop, max_crop), axis=ii)
-
+            print ("Post BatchGenerator data shape: ",data.shape)
+            #np.save(os.path.join('/home/aisinai/data/test', '{}_img_batch_gen.npy'.format(patients[b][0])), data)
             batch_data.append(data)
             batch_segs.append(seg[np.newaxis])
 
