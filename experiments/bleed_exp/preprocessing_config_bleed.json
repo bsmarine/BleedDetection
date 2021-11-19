@@ -12,7 +12,8 @@
     "arterial",
     "venous"
 ],
-    "single-phase-art":"arterial",
-    "single-phase-venous":"venous"
-
+    "single-phase-art":["arterial"
+],
+    "single-phase-venous":["venous"
+]
 }

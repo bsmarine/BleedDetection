@@ -263,7 +263,7 @@ def convert_to_npy(npz_file, remove=False):
         os.remove(npz_file)
 
 
-def unpack_dataset(folder, threads=1):
+def unpack_dataset(folder, threads=8):
     case_identifiers = get_case_identifiers(folder)
     p = Pool(threads)
     npz_files = [os.path.join(folder, i + ".npz") for i in case_identifiers]

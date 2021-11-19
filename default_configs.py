@@ -48,7 +48,7 @@ class DefaultConfigs:
         self.seed = 0
 
         #number of threads for multithreaded batch generation.
-        self.n_workers = 4 if server_env else 2 ## os.cpu_count()-1
+        self.n_workers = 4 if server_env else os.cpu_count()-1
 
         # if True, segmentation losses learn all categories, else only foreground vs. background.
         self.class_specific_seg_flag = False
@@ -89,12 +89,12 @@ class DefaultConfigs:
         self.test_aug = True
 
         # if True, test data lies in a separate folder and is not part of the cross validation.
-        self.hold_out_test_set = False
+        self.hold_out_test_set = True
 
         # if hold_out_test_set provided, ensemble predictions over models of all trained cv-folds.
         # implications for hold-out test sets: if True, evaluate folds separately on the test set, aggregate only the
         # evaluations. if False, aggregate the raw predictions across all folds, then evaluate.
-        self.ensemble_folds = False
+        self.ensemble_folds = True
 
         # color specifications for all box_types in prediction_plot.
         self.box_color_palette = {'det': 'b', 'gt': 'r', 'neg_class': 'purple',
@@ -130,7 +130,7 @@ class DefaultConfigs:
         #########################
 
         # if True, mask loss is not applied. used for data sets, where no pixel-wise annotations are provided.
-        self.frcnn_mode = False
+        self.frcnn_mode = True
 
         # if True, unmolds masks in Mask R-CNN to full-res for plotting/monitoring.
         self.return_masks_in_val = False

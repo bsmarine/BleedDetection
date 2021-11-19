@@ -27,6 +27,7 @@ import pandas as pd
 import pickle
 import time
 import subprocess
+import SimpleITK as sitk
 
 # batch generator tools from https://github.com/MIC-DKFZ/batchgenerators
 from batchgenerators.dataloading.data_loader import SlimDataLoaderBase
@@ -52,6 +53,7 @@ def get_train_generators(cf, logger):
     If cf.hold_out_test_set is True, adds the test split to the training data.
     """
     all_data = load_dataset(cf, logger)
+    #whole_data = load_dataset(cf,logger,pp_data_path=cf.pp_whole_data_path, pp_name=cf.pp_whole_name)
     all_pids_list = np.unique([v['pid'] for (k, v) in all_data.items()])
 
     splits_file = os.path.join(cf.exp_dir, 'folds_ids.pickle')
@@ -95,7 +97,7 @@ def get_test_generator(cf, logger):
     If cf.hold_out_test_set is True, gets the data from an external folder instead.
     """
     if cf.hold_out_test_set:
-        pp_name = cf.pp_test_name
+        pp_name = cf.pp_name
         #test_ix = None
         test_ix = np.arange((len(os.listdir(cf.pp_test_data_path))/3)-2,dtype=np.int16)
     else:
@@ -105,7 +107,7 @@ def get_test_generator(cf, logger):
         _, _, test_ix, _ = fold_list[cf.fold]
         # warnings.warn('WARNING: using validation set for testing!!!')
 
-    test_data = load_dataset(cf, logger, test_ix, pp_data_path=cf.pp_test_data_path, pp_name=pp_name)
+    test_data = load_dataset(cf, logger, test_ix, pp_data_path=cf.pp_data_path, pp_name=pp_name)
     logger.info("data set loaded with: {} test patients".format(len(test_ix)))
     batch_gen = {}
     batch_gen['test'] = PatientBatchIterator(test_data, cf=cf)
@@ -168,6 +170,7 @@ def load_dataset(cf, logger, subset_ixs=None, pp_data_path=None, pp_name=None):
     for ix, pid in enumerate(pids):
         # for the experiment conducted here, malignancy scores are binarized: (benign: 1-2, malignant: 3-5)
         targets = [1 if ii >= 3 else 0 for ii in class_targets[ix]]
+        #targets = [ii for ii in class_targets[ix]]
         data[pid] = {'data': imgs[ix], 'seg': segs[ix], 'pid': pid, 'class_target': targets}
         data[pid]['fg_slices'] = p_df['fg_slices'].tolist()[ix]
     print ("Finished load_dataset...")   
@@ -193,14 +196,16 @@ def create_data_gen_pipeline(patient_data, cf, is_training=True):
     if is_training:
         mirror_transform = Mirror(axes=np.arange(cf.dim))
         my_transforms.append(mirror_transform)
+        print ("Dimension",cf.dim)
         spatial_transform = SpatialTransform(patch_size=cf.patch_size[:cf.dim],
                                              patch_center_dist_from_border=cf.da_kwargs['rand_crop_dist'],
                                              do_elastic_deform=cf.da_kwargs['do_elastic_deform'],
                                              alpha=cf.da_kwargs['alpha'], sigma=cf.da_kwargs['sigma'],
                                              do_rotation=cf.da_kwargs['do_rotation'], angle_x=cf.da_kwargs['angle_x'],
                                              angle_y=cf.da_kwargs['angle_y'], angle_z=cf.da_kwargs['angle_z'],
+                                             p_rot_per_sample=0.05, p_scale_per_sample=0.05,
                                              do_scale=cf.da_kwargs['do_scale'], scale=cf.da_kwargs['scale'],
-                                             random_crop=cf.da_kwargs['random_crop'])
+                                             random_crop=cf.da_kwargs['random_crop'], order_data=0,order_seg=0)
 
         my_transforms.append(spatial_transform)
     else:
@@ -208,7 +213,8 @@ def create_data_gen_pipeline(patient_data, cf, is_training=True):
 
     my_transforms.append(ConvertSegToBoundingBoxCoordinates(cf.dim, get_rois_from_seg_flag=False, class_specific_seg_flag=cf.class_specific_seg_flag))
     all_transforms = Compose(my_transforms)
-    print ("Define MultiThreadedAugmenter...")
+    #print ("Define MultiThreadedAugmenter...")
+
     multithreaded_generator = SingleThreadedAugmenter(data_gen, all_transforms)
     #multithreaded_generator = MultiThreadedAugmenter(data_gen, all_transforms, num_processes=cf.n_workers, seeds=range(cf.n_workers))
     return multithreaded_generator
@@ -245,7 +251,7 @@ class BatchGenerator(SlimDataLoaderBase):
         patients = list(self._data.items())
         for b in batch_ixs:
             patient = patients[b][1]
-            print (patients[b][0])
+            print ("Adding patient ",patients[b][0]," to a batch")
             # data shape: from (z,y,x,c) or (y,x,c) to (c, y, x, z) depending on input data shape.
             data = np.load(patient['data'],mmap_mode='r')
             if len(data.shape)==4:
@@ -255,7 +261,7 @@ class BatchGenerator(SlimDataLoaderBase):
             seg = np.transpose(np.load(patient['seg'], mmap_mode='r'), axes=(1, 2, 0))
             batch_pids.append(patient['pid'])
             batch_targets.append(patient['class_target'])
-            print ("Print data shape before sampling: ",data.shape)            
+            #print ("Print data shape before sampling: ",data.shape)            
             if self.cf.dim == 2:
                 # draw random slice from patient while oversampling slices containing foreground objects with p_fg.
                 if len(patient['fg_slices']) > 0:
@@ -317,14 +323,17 @@ class BatchGenerator(SlimDataLoaderBase):
                     max_crop = int(sample_seg_center[ii] + self.cf.pre_crop_size[ii] // 2)
                     data = np.take(data, indices=range(min_crop, max_crop), axis=ii + 1)
                     seg = np.take(seg, indices=range(min_crop, max_crop), axis=ii)
-            print ("Post BatchGenerator data shape: ",data.shape)
-            #np.save(os.path.join('/home/aisinai/data/test', '{}_img_batch_gen.npy'.format(patients[b][0])), data)
+            #print ("Post BatchGenerator data shape: ",data.shape)
+            # if "g1" in patients[b][0]:
+            #     print ("############Writing images for ",patients[b][0])
+            #     write_nii_gz(data,seg,patients[b][0])
             batch_data.append(data)
             batch_segs.append(seg[np.newaxis])
 
         data = np.array(batch_data)
         seg = np.array(batch_segs).astype(np.uint8)
         class_target = np.array(batch_targets)
+        print ("Pre batchgenerator input :", data.shape,seg.shape,batch_pids,class_target.shape,class_target)
         
         return {'data': data, 'seg': seg, 'pid': batch_pids, 'class_target': class_target}
 
@@ -361,6 +370,8 @@ class PatientBatchIterator(SlimDataLoaderBase):
              data = np.transpose(data, axes=(1, 2, 0))[np.newaxis] # (c, y, x, z)
         seg = np.transpose(np.load(patient['seg'], mmap_mode='r'), axes=(1, 2, 0))
         batch_class_targets = np.array([patient['class_target']])
+        
+        print ("Sanity Check ####",data.shape)
 
         # pad data if smaller than patch_size seen during training.
         if np.any([data.shape[dim + 1] < ps for dim, ps in enumerate(self.patch_size)]):
@@ -445,6 +456,7 @@ class PatientBatchIterator(SlimDataLoaderBase):
                     data = data[..., 0]
                 seg = seg[..., 0]
 
+            print ("Patient Batch Generator Post Data Shape",data.shape)
             patch_batch = {'data': data, 'seg': seg, 'class_target': batch_class_targets, 'pid': pid}
             patch_batch['patch_crop_coords'] = np.array(patch_crop_coords_list)
             patch_batch['patient_bb_target'] = patient_batch['patient_bb_target']
@@ -473,13 +485,25 @@ def copy_and_unpack_data(logger, pids, fold_dir, source_dir, target_dir):
 
     subprocess.call('rsync -av --files-from {} {} {}'.format(os.path.join(fold_dir, 'file_list.txt'),
         source_dir, target_dir), shell=True)
-    n_threads = 1
+    n_threads = 8
     dutils.unpack_dataset(target_dir, threads=n_threads)
     copied_files = os.listdir(target_dir)
     t = utils.get_formatted_duration(time.time() - start_time)
     logger.info("\ncopying and unpacking data set finished using {} threads.\n{} files in target dir: {}. Took {}\n"
         .format(n_threads, len(copied_files), target_dir, t))
-
+    
+def write_nii_gz(data,seg,ii):
+    arr = np.copy(data)
+    art = arr[1]
+    nc = arr[0]
+    ven=arr[2]
+    three_phases = {'art':art,'noncon':nc,'ven':ven}
+    for phase,jj in three_phases.items():
+        np.swapaxes(jj,0,2)
+        sitk.WriteImage(sitk.GetImageFromArray(jj),os.path.join('/home/aisinai/data/testing', '{}_img.nii.gz'.format(ii+"_"+phase)))
+    sarr = np.copy(seg)
+    np.swapaxes(seg,0,2)
+    sitk.WriteImage(sitk.Cast(sitk.GetImageFromArray(sarr),5),os.path.join('/home/aisinai/data/testing', '{}_seg.nii.gz'.format(ii)))
 
 if __name__=="__main__":
 

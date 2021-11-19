@@ -15,6 +15,7 @@
 # ==============================================================================
 
 import os
+import code
 import numpy as np
 import torch
 from scipy.stats import norm
@@ -69,6 +70,8 @@ class Predictor:
         # number of ensembled models. used to calculate the number of expected predictions per position
         # during consolidation of predictions. Default is 1 (no ensembling, e.g. in validation).
         self.n_ens = 1
+
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         if self.mode == 'test':
             try:
@@ -144,11 +147,15 @@ class Predictor:
         # get paths of all parameter sets to be loaded for temporal ensembling. (or just one for no temp. ensembling).
         weight_paths = [os.path.join(self.cf.fold_dir, '{}_best_checkpoint'.format(epoch), 'params.pth') for epoch in
                         self.epoch_ranking]
+
+        print (weight_paths)
+
         n_test_plots = min(batch_gen['n_test'], 1)
 
         for rank_ix, weight_path in enumerate(weight_paths):
 
             self.logger.info(('tmp ensembling over rank_ix:{} epoch:{}'.format(rank_ix, weight_path)))
+            #code.interact(local=locals())
             self.net.load_state_dict(torch.load(weight_path))
             self.net.eval()
             self.rank_ix = str(rank_ix)  # get string of current rank for unique patch ids.
@@ -535,6 +542,8 @@ class Predictor:
         #self.logger.info('forwarding (patched) patient with shape: {}'.format(batch['data'].shape))
 
         img = batch['data']
+
+        #batch['data'] = torch.from_numpy(batch['data']).float().to(self.device)
 
         if img.shape[0] <= self.cf.batch_size:
 

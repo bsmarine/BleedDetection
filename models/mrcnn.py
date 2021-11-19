@@ -378,7 +378,6 @@ def pyramid_roi_align(feature_maps, rois, pool_size, pyramid_levels, dim):
     :param pool_size: list of poolsizes in dims: [x, y, (z)]
     :param pyramid_levels: list. [0, 1, 2, ...]
     :return: pooled: pooled feature map rois (n_proposals, c, poolsize_y, poolsize_x, (poolsize_z))
-
     Output:
     Pooled regions in the shape: [num_boxes, height, width, channels].
     The width and height are those specific in the pool_shape in the layer
@@ -459,7 +458,6 @@ def detection_target_layer(batch_proposals, batch_mrcnn_class_scores, batch_gt_c
     (SHEM), where a number of negative proposals are drawn from larger pool of highest scoring proposals for stochasticity.
     Scoring is obtained here as the max over all foreground probabilities as returned by mrcnn_classifier (worked better than
     loss-based class balancing methods like "online-hard-example-mining" or "focal loss".)
-
     :param batch_proposals: (n_proposals, (y1, x1, y2, x2, (z1), (z2), batch_ixs).
     boxes as proposed by RPN. n_proposals here is determined by batch_size * POST_NMS_ROIS.
     :param batch_mrcnn_class_scores: (n_proposals, n_classes)
@@ -716,7 +714,6 @@ def detection_target_layer(batch_proposals, batch_mrcnn_class_scores, batch_gt_c
 def refine_detections(cf, batch_ixs, rois, deltas, scores):
     """
     Refine classified proposals (apply deltas to rpn rois), filter overlaps (nms) and return final detections.
-
     :param rois: (n_proposals, 2 * dim) normalized boxes as proposed by RPN. n_proposals = batch_size * POST_NMS_ROIS
     :param deltas: (n_proposals, n_classes, 2 * dim) box refinement deltas as predicted by mrcnn bbox regressor.
     :param batch_ixs: (n_proposals) batch element assignment info for re-allocation.

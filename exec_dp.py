@@ -23,9 +23,10 @@ import time
 import pandas as pd
 import pickle
 import sys
-import numpy as np
+import cProfile, pstats
 
 import torch
+import torch.nn as nn
 
 import utils.exp_utils as utils
 from evaluator import Evaluator
@@ -50,7 +51,16 @@ def train(logger):
     logger.info('performing training in {}D over fold {} on experiment {} with model {}'.format(
         cf.dim, cf.fold, cf.exp_dir, cf.model))
 
+    print ("Number of cuda devices available ",torch.cuda.device_count())
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu") ## specify the GPU id's, GPU id's start from 0.
+
     net = model.net(cf, logger).cuda()
+
+    #net = nn.DataParallel(net).to(device)
+
+    print ("Did data parallel get carried out for net in exec script?? ",isinstance(net, nn.DataParallel))
+
     if hasattr(cf, "optimizer") and cf.optimizer.lower() == "adam":
         logger.info("Using Adam optimizer.")
         optimizer = torch.optim.Adam(utils.parse_params_for_optim(net, weight_decay=cf.weight_decay,
@@ -105,12 +115,17 @@ def train(logger):
         net.train()
         train_results_list = []
         for bix in range(cf.num_train_batches):
+
+            # profiler = cProfile.Profile()
+            # profiler.enable()
+
+
             ######### Insert call to grab right training data fold from hdf5
             print ("Get next batch_gen['train] ...",datetime.now().strftime("%m/%d/%Y %H:%M:%S:%f"))
             ##Stalled
             batch = next(batch_gen['train']) ######## Instead of this line, grab a batch from training data fold
             tic_fw = time.time()
-            print ("Start forward pass...",time.time())
+            print ("Start forward pass...",datetime.now().strftime("%m/%d/%Y %H:%M:%S:%f"))
             results_dict = net.train_forward(batch)
             tic_bw = time.time()
             optimizer.zero_grad()
@@ -125,11 +140,15 @@ def train(logger):
             train_results_list.append(({k:v for k,v in results_dict.items() if k != "seg_preds"}, batch["pid"]))
             print("Loop through train batch DONE",datetime.now().strftime("%m/%d/%Y %H:%M:%S:%f"),(time.time()-time_start_train)/60, "minutes since training started")
 
+            # profiler.disable()
+            # stats = pstats.Stats(profiler).sort_stats('cumtime')
+            # stats.print_stats()
+
         _, monitor_metrics['train'] = train_evaluator.evaluate_predictions(train_results_list, monitor_metrics['train'])
 
-        logger.info('generating training example plot.')
-        utils.split_off_process(plot_batch_prediction, batch, results_dict, cf, outfile=os.path.join(
-           cf.plot_dir, 'pred_example_{}_train.png'.format(cf.fold)))
+        # logger.info('generating training example plot.')
+        # utils.split_off_process(plot_batch_prediction, batch, results_dict, cf, outfile=os.path.join(
+        #    cf.plot_dir, 'pred_example_{}_train.png'.format(cf.fold)))
 
         train_time = time.time() - start_time
 
@@ -148,6 +167,7 @@ def train(logger):
                         results_dict = net.train_forward(batch, is_validation=True)
                     #val_results_list.append([results_dict['boxes'], batch['pid']])
                     val_results_list.append(({k:v for k,v in results_dict.items() if k != "seg_preds"}, batch["pid"]))
+                    #monitor_metrics['val']['monitor_values'][epoch].append(results_dict['monitor_values'])
 
                 _, monitor_metrics['val'] = val_evaluator.evaluate_predictions(val_results_list, monitor_metrics['val'])
                 model_selector.run_model_selection(net, optimizer, monitor_metrics, epoch)
@@ -179,11 +199,14 @@ def test(logger):
     """
     perform testing for a given fold (or hold out set). save stats in evaluator.
     """
-    test_ix = np.arange((len(os.listdir(cf.pp_test_data_path))/3)-2,dtype=np.int16)
-    print ("Test indices size: "+str(len(test_ix))+" and is held out test set "+str(cf.hold_out_test_set))
-    
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu") ## specify the GPU id's, GPU id's start from 0.
+
     logger.info('starting testing model of fold {} in exp {}'.format(cf.fold, cf.exp_dir))
     net = model.net(cf, logger).cuda()
+
+    #net = nn.DataParallel(net).to(device)
+
     test_predictor = Predictor(cf, net, logger, mode='test')
     test_evaluator = Evaluator(cf, logger, mode='test')
     ################ Insert call to grab right test data (fold?) from hdf5
@@ -262,32 +285,33 @@ if __name__ == '__main__':
                     os.mkdir(cf.fold_dir)
                 logger.set_logfile(fold=fold)
                 train(logger)
+
                 cf.resume = False
                 if args.mode == 'train_test':
                     test(logger)
-                
-                #Concatenate test results by detection
+            
+            #Concatenate test results by detection
 
             if cf.hold_out_test_set == False:
-                  test_frames = [pd.read_pickle(os.path.join(cf.test_dir,f)) for f  in os.listdir(cf.test_dir) if '_test_df.pickle' in f]
-                  all_preds = pd.concat(test_frames)
-                  all_preds.to_csv(os.path.join(cf.test_dir,"all_folds_test.csv"))
+                    test_frames = [pd.read_pickle(os.path.join(cf.test_dir,f)) for f  in os.listdir(cf.test_dir) if '_test_df.pickle' in f]
+                    all_preds = pd.concat(test_frames)
+                    all_preds.to_csv(os.path.join(cf.test_dir,"all_folds_test.csv"))
 
                 #Concatenate detection raw boxes across folds
-                  det_frames = [pd.read_pickle(os.path.join(cf.exp_dir,f,'raw_pred_boxes_list.pickle')) for f in os.listdir(cf.exp_dir) if 'fold_' in f]
-                  all_dets=list()
-                  for i in det_frames:
-                    all_dets.extend(i)
-                  with open(os.path.join(cf.exp_dir, 'all_raw_dets.pickle'), 'wb') as handle:
-                    pickle.dump(all_dets, handle)
+                    det_frames = [pd.read_pickle(os.path.join(cf.exp_dir,f,'raw_pred_boxes_list.pickle')) for f in os.listdir(cf.exp_dir) if 'fold_' in f]
+                    all_dets=list()
+                    for i in det_frames:
+                        all_dets.extend(i)
+                    with open(os.path.join(cf.exp_dir, 'all_raw_dets.pickle'), 'wb') as handle:
+                        pickle.dump(all_dets, handle)
 
                 #Concatenate detection wbc boxes across folds
-                  det_frames = [pd.read_pickle(os.path.join(cf.exp_dir,f,'wbc_pred_boxes_list.pickle')) for f in os.listdir(cf.exp_dir) if 'fold_' in f]
-                  all_dets=list()
-                  for i in det_frames:
-                    all_dets.extend(i)
-                  with open(os.path.join(cf.exp_dir, 'all_wbc_dets.pickle'), 'wb') as handle:
-                    pickle.dump(all_dets, handle)
+                    det_frames = [pd.read_pickle(os.path.join(cf.exp_dir,f,'wbc_pred_boxes_list.pickle')) for f in os.listdir(cf.exp_dir) if 'fold_' in f]
+                    all_dets=list()
+                    for i in det_frames:
+                        all_dets.extend(i)
+                    with open(os.path.join(cf.exp_dir, 'all_wbc_dets.pickle'), 'wb') as handle:
+                        pickle.dump(all_dets, handle)
 
     elif args.mode == 'test':
 
@@ -311,29 +335,26 @@ if __name__ == '__main__':
                 logger.set_logfile(fold=fold)
                 test(logger)
 
-            if cf.hold_out_test_set == True:
-                 test_mode = "_hold_out"
-            else:
-                test_mode = None
-            test_frames = [pd.read_pickle(os.path.join(cf.test_dir,f)) for f  in os.listdir(cf.test_dir) if '_test_df.pickle' in f] 
-            all_preds = pd.concat(test_frames)
-            all_preds.to_csv(os.path.join(cf.test_dir,"all_folds{}_test.csv".format(test_mode)))
+            if cf.hold_out_test_set == False:
+                  test_frames = [pd.read_pickle(os.path.join(cf.test_dir,f)) for f  in os.listdir(cf.test_dir) if '_test_df.pickle' in f] 
+                  all_preds = pd.concat(test_frames)
+                  all_preds.to_csv(os.path.join(cf.test_dir,"all_folds_test.csv"))
 
-        #Concatenate detection raw boxes across folds
-            det_frames = [pd.read_pickle(os.path.join(cf.exp_dir,f,'raw_pred_boxes{}_list.pickle'.format(test_mode))) for f in os.listdir(cf.exp_dir) if 'fold_' in f]
-            all_dets=list()
-            for i in det_frames:
-              all_dets.extend(i)
-            with open(os.path.join(cf.exp_dir, 'all_raw{}_dets.pickle'.format(test_mode)), 'wb') as handle:
-              pickle.dump(all_dets, handle)
+                #Concatenate detection raw boxes across folds
+                  det_frames = [pd.read_pickle(os.path.join(cf.exp_dir,f,'raw_pred_boxes_list.pickle')) for f in os.listdir(cf.exp_dir) if 'fold_' in f]
+                  all_dets=list()
+                  for i in det_frames:
+                    all_dets.extend(i)
+                  with open(os.path.join(cf.exp_dir, 'all_raw_dets.pickle'), 'wb') as handle:
+                    pickle.dump(all_dets, handle)
 
-        #Concatenate detection wbc boxes across folds
-            det_frames = [pd.read_pickle(os.path.join(cf.exp_dir,f,'wbc_pred_boxes{}_list.pickle'.format(test_mode))) for f in os.listdir(cf.exp_dir) if 'fold_' in f]
-            all_dets=list()
-            for i in det_frames:
-              all_dets.extend(i)
-            with open(os.path.join(cf.exp_dir, 'all_wbc{}_dets.pickle'.format(test_mode)), 'wb') as handle:
-              pickle.dump(all_dets, handle)
+                #Concatenate detection wbc boxes across folds
+                  det_frames = [pd.read_pickle(os.path.join(cf.exp_dir,f,'wbc_pred_boxes_list.pickle')) for f in os.listdir(cf.exp_dir) if 'fold_' in f]
+                  all_dets=list()
+                  for i in det_frames:
+                    all_dets.extend(i)
+                  with open(os.path.join(cf.exp_dir, 'all_wbc_dets.pickle'), 'wb') as handle:
+                    pickle.dump(all_dets, handle)
 
     # load raw predictions saved by predictor during testing, run aggregation algorithms and evaluation.
     elif args.mode == 'analysis':

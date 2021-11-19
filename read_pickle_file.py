@@ -7,6 +7,12 @@ class ReadPickle:
 
       self.input = input
 
+  def fix_df(self,df):
+
+      df = df.assign(class_target=int(1))
+
+      df.to_pickle(os.path.join(os.path.dirname(self.input), 'info_df_new.pickle'))
+
   def run(self):
       
       df = pd.read_pickle(self.input)

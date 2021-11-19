@@ -14,6 +14,7 @@
 # limitations under the License.
 # ==============================================================================
 
+from pickle import FALSE
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
@@ -31,9 +32,10 @@ class configs(DefaultConfigs):
         self.multiphase = True
         self.pp_mp_cf = 'preprocessing_config_bleed.json'
         self.mp_setting = "three-phase"
+        self.pp_patches = [256,256,256] # None if using full image size
         self.root_dir = '/home/aisinai/data/'
-        self.raw_data_dir = '{}/raw_data/rw_128_pn_all'.format(self.root_dir)
-        self.pp_dir = '{}/preprocessed_data/pp_128_all_pn_f16'.format(self.root_dir)
+        self.raw_data_dir = '{}raw_data/test_full_gi'.format(self.root_dir)
+        self.pp_dir = '{}preprocessed_data/pp_test_256_gi'.format(self.root_dir)
         self.target_spacing = (1.0, 1.0, 1.0)
 
         #########################
@@ -53,10 +55,12 @@ class configs(DefaultConfigs):
         self.select_prototype_subset = None
 
         # path to preprocessed data.
-        self.pp_name = 'pp_groin_full'
+        self.pp_name = 'pp_train_256_gi' # will change to just the 256 batch
+        self.pp_whole_name = 'pp_train_256_gi'
         self.input_df_name = 'info_df.pickle'
         self.pp_data_path = '/home/aisinai/data/preprocessed_data/{}'.format(self.pp_name)
-        self.pp_test_data_path = self.pp_data_path #change if test_data in separate folder.
+        self.pp_whole_data_path = '/home/aisinai/data/preprocessed_data/{}'.format(self.pp_whole_name)
+        self.pp_test_data_path = self.pp_data_path #change if test_data in separate folder. CHANGE TO WHOLE DATA PATH IF WORKAROUND NEEDED
 
         # settings for deployment in cloud.
         if server_env:
@@ -72,14 +76,14 @@ class configs(DefaultConfigs):
         #########################
 
         # select modalities from preprocessed data
-        self.channels = [0, 1, 2]
+        self.channels = [0,1,2]
         self.n_channels = len(self.channels)
 
         # patch_size to be used for training. pre_crop_size is the patch_size before data augmentation.
         self.pre_crop_size_2D = [300, 300]
         self.patch_size_2D = [288, 288]
-        self.pre_crop_size_3D = [512,512,768]
-        self.patch_size_3D = [128,128,128]
+        self.pre_crop_size_3D = [256,256,256]
+        self.patch_size_3D = [256,256,256]
         self.patch_size = self.patch_size_2D if self.dim == 2 else self.patch_size_3D
         self.pre_crop_size = self.pre_crop_size_2D if self.dim == 2 else self.pre_crop_size_3D
 
@@ -115,14 +119,14 @@ class configs(DefaultConfigs):
 
         self.num_epochs = 100
         self.num_train_batches = 200 if self.dim == 2 else 100
-        self.batch_size = 20 if self.dim == 2 else 8
+        self.batch_size = 20 if self.dim == 2 else 4
 
         self.do_validation = True
         # decide whether to validate on entire patient volumes (like testing) or sampled patches (like training)
         # the former is morge accurate, while the latter is faster (depending on volume size)
-        self.val_mode = 'val_sampling' # one of 'val_sampling' , 'val_patient'
+        self.val_mode = 'val_patient' # one of 'val_sampling' , 'val_patient'
         if self.val_mode == 'val_patient':
-            self.max_val_patients = 50  # if 'None' iterates over entire val_set once.
+            self.max_val_patients = 10  # if 'None' iterates over entire val_set once.
         if self.val_mode == 'val_sampling':
             self.num_val_batches = 50
 
@@ -254,6 +258,7 @@ class configs(DefaultConfigs):
         # anchor scales are chosen according to expected object sizes in data set. Default uses only one anchor scale
         # per pyramid level. (outer list are pyramid levels (corresponding to BACKBONE_STRIDES), inner list are scales per level.)
         self.rpn_anchor_scales = {'xy': [[8], [16], [32], [64]], 'z': [[8], [16], [32], [64]]}
+        #self.rpn_anchor_scales = {'xy': [[2], [4], [8], [16]], 'z': [[2], [4], [8], [16]]}
 
         # choose which pyramid levels to extract features from: P2: 0, P3: 1, P4: 2, P5: 3.
         self.pyramid_levels = [0, 1, 2, 3]
@@ -271,9 +276,8 @@ class configs(DefaultConfigs):
         # loss sampling settings.
         self.rpn_train_anchors_per_image = 6  #per batch element
         self.train_rois_per_image = 6 #per batch element
-        self.roi_positive_ratio = 0.5
+        self.roi_positive_ratio = 0.80
         self.anchor_matching_iou = 0.7
-
         # factor of top-k candidates to draw from  per negative sample (stochastic-hard-example-mining).
         # poolsize to draw top-k candidates from will be shem_poolsize * n_negative_samples.
         self.shem_poolsize = 10
@@ -299,7 +303,7 @@ class configs(DefaultConfigs):
         # n_proposals to be selected after NMS per batch element. too high numbers blow up memory if "detect_while_training" is True,
         # since proposals of the entire batch are forwarded through second stage in as one "batch".
         self.roi_chunk_size = 2500 if self.dim == 2 else 600
-        self.post_nms_rois_training = 500 if self.dim == 2 else 75
+        self.post_nms_rois_training = 500 if self.dim == 2 else 500
         self.post_nms_rois_inference = 500
 
         # Final selection of detections (refine_detections)

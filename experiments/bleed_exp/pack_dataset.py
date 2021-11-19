@@ -31,7 +31,7 @@ def convert_to_npy(npz_file):
         np.save(npz_file[:-3] + "npy", a)
 
 
-def unpack_dataset(folder, threads=1):
+def unpack_dataset(folder, threads=4):
     case_identifiers = get_case_identifiers(folder)
     p = Pool(threads)
     npz_files = [os.path.join(folder, i + ".npz") for i in case_identifiers]
